@@ -712,7 +712,7 @@ library(optparse)
 
 option_list = list(
     make_option(c("-i", "--input"),  type = "character", default = NULL,  help = "Input SV VCF file"),
-    make_option(c("-o", "--output"), type = "character", default = "circos.pdf",  help = "Output pdf to write the graph"),
+    make_option(c("-o", "--output"), type = "character", default = "circos",  help = "Output basename of pdf to write the graph"),
     make_option(c("-g", "--genes"), type = "logical", default = TRUE,  help = "Add genes to the plot?"),
     make_option(c("-H", "--height"), type = "numeric", default = 10,  help = "Height"),
     make_option(c("-W", "--width"), type = "numeric", default = 10,  help = "Width")
@@ -760,7 +760,7 @@ x2 = b$grl.iix==2
 links = data.frame(Chromosome=seqnames(b[x1]), chromStart=start(b[x1]), chromEnd=end(b[x1]), Chromosome.1=seqnames(b[x2]), chromStart.1=start(b[x2]), chromeEnd.1=end(b[x2]))
 
 ## plot the PDF
-pdf(file=opt$output, height=opt$height, width=opt$width, compress=TRUE);
+pdf(file=paste0(opt$output,".pdf"), height=opt$height, width=opt$width, compress=TRUE);
 RCircos.Set.Plot.Area();
 RCircos.Chromosome.Ideogram.Plot();
 if (opt$genes && nrow(gene.dat) > 0) {

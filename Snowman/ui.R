@@ -5,7 +5,7 @@
 # http://shiny.rstudio.com
 #
 
-library(shiny)
+##source("helper.R")
 
 shinyUI(navbarPage(
   title="Snowman - Structural variation detection by genome-wide local assembly",
@@ -39,5 +39,7 @@ shinyUI(navbarPage(
              #mainPanel(p("sdf"))
           # )
   ),
-  tabPanel(title="Analysis of NA12878")
+  tabPanel(title="Analysis of NA12878",
+           div(dataTableOutput("snowman_NA12878_table"), style="font-size:70%")
+           )
 ))

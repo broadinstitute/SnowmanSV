@@ -5,10 +5,13 @@
 # http://shiny.rstudio.com
 #
 
-library(shiny)
+source("helper.R")
 
 shinyServer(function(input, output) {
 
+  output$snowman_NA12878_table <- renderDataTable(snow.NA12878, options=list(pageLength = 5))
+  
+  
   output$distPlot <- renderPlot({
 
     # generate bins based on input$bins from ui.R

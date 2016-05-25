@@ -108,7 +108,7 @@ load_lumpy <- function(files) {
       return (GRangesList())
     }
     dvcf <-   readVcf(x, "hg19")
-    d <- rowData(dvcf)
+    d <- rowRanges(dvcf)
     mcols(d) = cbind(mcols(d), info(dvcf))
 
     somatic <- geno(dvcf)[[2]][,2] == 0
@@ -179,7 +179,7 @@ load_indel <- function(files, mc.cores=1) {
       print(paste("File does not exist",x))
       return (GRanges())
     }
-    fff <- rowData(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    fff <- rowRanges(rv <- VariantAnnotation::readVcf(x, "hg19"))
     if (length(fff) == 0)
       return (GRanges())
 
@@ -249,7 +249,7 @@ load_delly <- function(files) {
       return (GRangesList())
     }
     dvcf <- readVcf(x, "hg19")
-    d <- rowData(dvcf)
+    d <- rowRanges(dvcf)
     if (length(d) == 0)
       return (GRangesList())
     f = d$FILTER

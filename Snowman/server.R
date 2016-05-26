@@ -9,8 +9,11 @@ source("helper.R")
 
 shinyServer(function(input, output) {
 
-  output$snowman_NA12878_table <- renderDataTable(snow.NA12878, options=list(pageLength = 5))
+  output$snowman_NA12878_table <- renderDataTable(snow.dels.NA12878, options=list(pageLength = 10))
+  output$truth_NA12878_table <- renderDataTable(truth.NA12878$dt, options=list(pageLength = 10))
+  output$truth_NA12878_table2 <- renderDataTable(truth2.NA12878$dt, options=list(pageLength = 10))
   
+  output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
   
   output$distPlot <- renderPlot({
 

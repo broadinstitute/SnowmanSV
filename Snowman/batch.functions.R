@@ -323,7 +323,7 @@ indel_overlaps <- function(x, prefix="") {
   paste(c(prefix,"Num FN:", length(i_fn), prefix,"Num FP:", length(i_fp), prefix,"Num TP:", length(unique(fo$query.id))))
 }
 
-flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="indel") {
+flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all") {
 
   df <- data.frame()
   FPi <- FPs <- c()
@@ -332,21 +332,27 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="inde
 
   e$span[e$span == -1] <- 1e8
   
-  if (type == "medium")
-    num_indel = length(unique(e$id[ix <- e$span >= 50 & e$span <= 200 & !grepl("RAR", e$id)]))
-  else if (type == "sv")
-    num_indel = length(unique(e$id[ix <- e$span >= 500]))
-  else if (type == "indel")
-    num_indel = length(unique(e$id[ix <- e$span < 50 & e$span > 0]))    
+  if (type == "medium") {
+    num_events = length(unique(e$id[ix <- e$span >= 50 & e$span <= 200 & !grepl("RAR", e$id)]))
+  } else if (type == "sv") {
+    num_events = length(unique(e$id[ix <- e$span >= 500]))
+  } else if (type == "indel") {
+    num_events = length(unique(e$id[ix <- e$span < 50 & e$span > 0]))
+  } else {
+    num_events = length(unique(e$id[ix <- rep(TRUE, length(e))]))
+  }
 
-  if (type == "indel") 
+  if (type == "indel")  {
     valid = seq(1,49)
-  else if (type == "medium")
+  } else if (type == "medium") {
     valid = seq(50,200)
+  }
   
-  print(paste('num events considered', num_indel))
+  print(paste('num events considered', num_events))
   if (!is.null(xindel)) {
 
+    num_indel <- length(unique(e$id[e$span < 50 & e$span > 0]))
+    
     fo <- gr.findoverlaps(xindel, e + 15)
     fo$id <- e$id[fo$subject.id]
     fo$type <- e$type[fo$subject.id]
@@ -361,13 +367,16 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="inde
     
     FNi <- setdiff(unique(e$id), unique(fo$id))
     FPi <- xindel[unique(setdiff(seq_along(xindel), fo$query.id))]
-    FNi <- e[e$id %in% FN & grepl("(del)|(ins)", e$id)]
+    FNi <- e[e$id %in% FNi & grepl("(del)|(ins)", e$id)] ## only count false negatives among ones we should have seen
     
     ## isolate FP evnets only with span in range
-    if (type %in% c("indel", "medium"))
+    if (type %in% c("indel", "medium")) {
       FPi = FPi[FPi$SPAN %in% valid]
-    else
+    } else if (type == "sv") {
       FPi = FPi[FPi$SPAN >= 500 | FPi$SPAN == -1]
+    } else {
+      FPi = FPi
+    }
     
     saveRDS(FPi,"/dev/shm/fpi.rds")
     saveRDS(FNi,"/dev/shm/fni.rds")
@@ -376,70 +385,80 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="inde
     print(paste(c("Indel Precision: ", pr <- length(TPi)/(length(TPi) + length(FPi)), "Indel Recall:", rc<-length(TPi)/num_indel), collapse=" "))
     df <- data.frame(indel_precision=pr, indel_recall=rc)
     
-    #df <- list(TP=c(fo$span), FN=ff$V8[!ff$V11 %in% fo$id])
-    #df <- data.frame(span=log10(c(df$TP, df$FN) + runif(length(df$FN) + length(df$TP))), type=c(rep("TP", length(df$TP)), rep("FN", length(df$FN))))
   }
 
   if (!is.null(xsv)) {
 
+    ## make GRangesList of true events
     grl.e <- split(e[ix], e$id[ix])
     this_id <- unique(grl.unlist(grl.e)$id)
 
-    ixr <- mcols(xsv)$SPAN >= 500 |  mcols(xsv)$SPAN == -1
-    id <- seq_along(xsv)
-    id2 <- id[ixr]
+    num_sv = length(unique(e$id[e$span >= 500]))
+    
+    ## get the overlaps
     ro <- ra.overlaps(xsv, grl.e, pad=10, ignore.strand=TRUE)
-    #FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), ro[,1]))]
+
+    ## get the overlaps for larger events, with larger buffer
+    id <- seq_along(xsv)
+    ixr <- mcols(xsv)$SPAN >= 500 |  mcols(xsv)$SPAN == -1
+    id2 <- id[ixr]
     ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE)
+
     FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
 
-    if (type %in% c("indel", "medium"))
+    if (type %in% c("indel", "medium")) {
       FPs <- FPs[FPs %in% valid] ## only count FP in our size range
-    else
+    } else if (type == 'sv') {
       FPs <- FPs[FPs >= 500 | FPs == -1] ## only count FP in our size range
+    } else {
+      FPs <- FPs
+    }
     
     TPs <- unique(this_id[ro[,2]], this_id[ro2[,2]])
     FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
+    ##FNs <- unique(FNs[FNs %in% e$id[e$span >= 500 ]])
 
-    ## some FN from indel are now found, so remove
-    ##FNs <- unique(FNs[!FNs %in% TP])
+    print(paste(c("TP SV", length(TPs), "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))
+    print(paste(c("SV Precision: ", pr <- length(TPs)/(length(TPs) + length(FPs)), "SV Recall:", rc<-length(TPs)/num_sv), collapse=" "))
     
-    print(paste(c("TP SV", length(unique(ro[,1])), "FP SV", length(FPs), "FN SV", length(FNs))))
-    
-    #if (length(FN) + length(TP) != length(grl.e)) {
-    #  stop("Made some accounting error. TP + FN must be equal")
-    #}
   }
 
   tFP <- length(FPs) + length(FPi)
   tTP = length(unique(c(TP,TPs)))
   print(paste("Total FP:", tFP))
   print(paste("Total TP:", tTP))
-  print(paste(c("Total Precision: ", pr <- tTP/(tTP + tFP), "Total Recall:", rc<-tTP/num_indel), collapse=" "))
+  print(paste(c("Total Precision: ", pr <- tTP/(tTP + tFP), "Total Recall:", rc<-tTP/num_events), collapse=" "))
   
   if (fname=="noplot")
     return(df)
   
-   TPe <- e$id %in% TP
-   FNe <- e$id %in% FN
+  TPe <- e$id %in% c(TPs, TPi)
+  FNe <- !TPe ##e$id %in% c(FNs, FNi)
+  FP <- grbind(FPi, FPs)
 
-   INDEL_CUTOFF = 9;
-   ic.ix <- e$span < 0 
-   isindel <- e$span <= INDEL_CUTOFF 
-   df.sv       <- data.frame(span=log10(c(e$span[TPe & !isindel & !ic.ix], e$span[FNe & !isindel & !ic.ix], FP[FP > INDEL_CUTOFF & FP > 0])),
-                      type=c(rep("TP", sum(TPe & !isindel & !ic.ix)), rep("FN", sum(FNe & !isindel & !ic.ix)), rep("FP", length(FP[FP > INDEL_CUTOFF & FP > 0]))))
-   df.indel <- data.frame(span=c(e$span[TPe & isindel & !ic.ix], e$span[FNe & isindel & !ic.ix], FP[FP <= INDEL_CUTOFF & FP > 0]),
-                      type=c(rep("TP", sum(TPe & isindel & !ic.ix)), rep("FN", sum(FNe & isindel & !ic.ix)), rep("FP", length(FP[FP <= INDEL_CUTOFF & FP > 0]))))
+  ## MAKE THE INDEL PLOT
+  INDEL_CUTOFF = 9;
+  ic.ix <- e$span == 1e8
+  isindel <- e$span <= INDEL_CUTOFF 
+  df.indel <- data.frame(span=c(e$span[TPe & isindel & !ic.ix], e$span[FNe & isindel & !ic.ix], FP$SPAN[FP$SPAN <= INDEL_CUTOFF & FP$SPAN > 0]),
+                         type=c(rep("TP", sum(TPe & isindel & !ic.ix)), rep("FN", sum(FNe & isindel & !ic.ix)), rep("FP", length(FP$SPAN[FP$SPAN <= INDEL_CUTOFF & FP$SPAN > 0]))))
+  df.indel$type = as.character(df.indel$type);    df.sv$type = as.character(df.sv$type)
+  df.indel$type <- factor(df.indel$type, levels=c("TP", "FP", "FN"));    df.sv$type <- factor(df.sv$type, levels=c("TP", "FP", "FN"))
 
+  ## MAKE THE SV PLOT
+  df.sv       <- data.frame(span=log10(c(e$span[TPe & !isindel], e$span[FNe & !isindel], FP$SPAN[FP$SPAN > INDEL_CUTOFF & FP$SPAN > 0])),
+                            type=c(rep("TP", sum(TPe & !isindel)), rep("FN", sum(FNe & !isindel)), rep("FP", length(FP$SPAN[FP$SPAN > INDEL_CUTOFF & FP$SPAN > 0]))))
   
-   df.indel$type = as.character(df.indel$type);    df.sv$type = as.character(df.sv$type)
-   df.indel$type <- factor(df.indel$type, levels=c("TP", "FP", "FN"));    df.sv$type <- factor(df.sv$type, levels=c("TP", "FP", "FN"))
 
+   ## MAKE THE IC PLOT
    df.ic <- df.sv[df.sv$span==8,]
    df.ic$span <- factor(df.ic$span)
 
+  labs <- c("TP"="True Positive", "FP"="False Positive", "FN"="False Negative")
+  cols <- c("TP"="darkgreen", "FP"="darkred", "FN"="darkgrey")
+  
   if ("FP" %in% df.sv$type) {
-    labs.sv = c("True Positive", "False Positive", "False Negative"); cols.sv = c("darkgreen", "darkred", "darkgrey")
+    labs.sv = c("True Positive", "False Positive", "False Negative"); cols.sv = 
   } else {
     labs.sv = c("True Positive", "False Negative"); cols.sv = c("darkgreen", "darkgrey")
   }
@@ -457,9 +476,9 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="inde
   }
 
   ## top, left, bottom, right
-  g.sv <- ggplot() + geom_histogram(data=df.sv,    aes(x=span, fill=type),binwidth=0.1) + theme_bw() + xlab("Distance (bp)") + ylab("Num Events") + scale_x_continuous(breaks=1:8, label=parse(text=paste("10", 1:8,sep="^"))) + scale_fill_manual(values=cols.sv, name="", labels=labs.sv) + coord_cartesian(ylim=c(0,600),xlim=c(1,7.7)) + theme(plot.margin=grid::unit(c(1,0,1,-0.5), "cm"), legend.position=c(0.65,0.65)) + ylab("")
-  g.in <- ggplot() + geom_histogram(data=df.indel, aes(x=span, fill=type),binwidth=1)   + theme_bw() + xlab("Distance (bp)") + ylab("Num Events") + scale_x_continuous(breaks=seq(from=1.5,9.5),label=1:9) + scale_fill_manual(values=cols.indel, name="", labels=labs.indel) + theme(legend.position="none",plot.margin=grid::unit(c(1,0.3,1,1), "cm")) + coord_cartesian(ylim=c(0,3600), xlim=c(1,10))
-  g.ic <- ggplot() + geom_histogram(data=df.ic, aes(x=as.numeric(span), fill=type), binwidth=1) + theme_bw() + xlab("") + ylab("Num Events") + scale_x_discrete(label=c("IC")) + scale_fill_manual(values=cols.ic, name="", labels=labs.ic) + coord_cartesian(ylim=c(0,1000)) + theme(plot.margin=grid::unit(c(1,0.3,1,-0.3), "cm"),legend.position="none") + ylab("")
+  g.sv <- ggplot() + geom_histogram(data=df.sv[df.sv$span < 7.7,],    aes(x=span, fill=type),binwidth=0.05) + theme_bw() + xlab("Distance (bp)") + ylab("Num Events") + scale_x_continuous(expand = c(0, 0), breaks=1:7, label=parse(text=paste("10", 1:7,sep="^"))) + scale_fill_manual(values=cols, name="", labels=labs) + coord_cartesian(xlim=c(1,7.7)) + theme(plot.margin=grid::unit(c(1,0,1,-0.5), "cm"), legend.position="none") + ylab("") + scale_y_continuous(expand = c(0, 0))
+  g.in <- ggplot() + geom_histogram(data=df.indel, aes(x=span, fill=type),binwidth=1)   + theme_bw() + xlab("Distance (bp)") + ylab("Num Events") + scale_x_continuous(expand = c(0, 0), breaks=1:9) + scale_y_continuous(expand = c(0, 0)) + scale_fill_manual(values=cols, name="", labels=labs) + theme(legend.position="none",plot.margin=grid::unit(c(1,0.3,1,1), "cm")) + coord_cartesian(ylim=c(0,19600))
+  g.ic <- ggplot() + geom_histogram(data=df.ic, aes(x=as.numeric(span), fill=type), binwidth=1) + theme_bw() + xlab("") + ylab("Num Events") + scale_x_discrete(label=c("IC"),expand = c(0, 0)) + theme(plot.margin=grid::unit(c(1,0.3,1.5,-0.3), "cm"),legend.position="none") + ylab("") + scale_fill_manual(values=cols, name="", labels=labs) + scale_y_continuous(expand = c(0, 0))
   require(gridExtra)
 
   ppdf(grid.arrange(g.in, g.sv, g.ic, ncol=3, widths=c(2.5,5,0.8)), width=8, height=3, filename=fname)
@@ -556,7 +575,7 @@ load_pindel <- function(x, tum = 6, normalt =0, normref = 10) {
   
 }
 
-load_pindel_vcf <- function(x, tum = 6, normalt =0, normref = 10, af=0.05) {
+load_pindel_vcf <- function(x, tum = 6, normalt =0, normref = 2, af=0.05) {
 
   ff <- fread(paste("grep -v '^#'", x),sep='\t')  
   ff[, END := as.numeric(gsub("END=([0-9]+);.*", "\\1", V8))]

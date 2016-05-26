@@ -15,6 +15,10 @@ shinyServer(function(input, output) {
   
   output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
   
+  output$snowman_sim_plot <- renderPlot({
+    
+  })
+  
   output$distPlot <- renderPlot({
 
     # generate bins based on input$bins from ui.R

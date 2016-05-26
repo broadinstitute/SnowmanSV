@@ -47,12 +47,12 @@ shinyUI(navbarPage(inverse=TRUE,
            h3("HTML to go here")
     )
   ),
-  navbarMenu(title="De novo assemblies",
-     tabPanel(title="HCC1143", 
-              h3("Whole-genome de novo assembly with DISCOVAR of HCC1143 with 250-bp PCR-free Illumina Paired-End Reads"),
-              div(dataTableOutput("discovar_hcc1143_events"), style="font-size:70%")
-     )
-  ),
+  # navbarMenu(title="De novo assemblies",
+  #    tabPanel(title="HCC1143", 
+  #             h3("Whole-genome de novo assembly with DISCOVAR of HCC1143 with 250-bp PCR-free Illumina Paired-End Reads"),
+  #             div(dataTableOutput("discovar_hcc1143_events"), style="font-size:70%")
+  #    )
+  # ),
   navbarMenu("NA12878",
   tabPanel(title="Data tables",icon = icon("fa fa-th-list"),
            h3("NA12878 deletions from 1000 Genomes (Mills et al)"),
@@ -70,15 +70,49 @@ shinyUI(navbarPage(inverse=TRUE,
              tabPanel(title="Events table", icon = icon("fa fa-th-list"),
                       h3("Simulated SVs"),
                       div(dataTableOutput("simulated_events_table"), style="font-size:70%")
-                      )
-             ),
+                      ),
+            tabPanel(title="Snowman", 
+                     plotOutput("snowman_sim_plot")
+                     )
+  ),
   navbarMenu("HCC1143",
-             tabPanel(title="Snowman events", icon = icon("fa fa-th-list"),
+             tabPanel(title="Snowman", icon = icon("fa fa-th-list"),
                       h3("Snowman somatic events (101-bp Illumina)"),
-                      div(dataTableOutput("snowman_hcc1143_101"), style="font-size:70%"),
-                      h3("Snowman somatic events (101-bp Illumina)"),
-                      div(dataTableOutput("snowman_hcc1143_250"), style="font-size:70%")
+                      div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
+                      h3("Snowman somatic events (250-bp PCR-free Illumina)"),
+                      div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
+             ),
+             tabPanel(title="LUMPY", icon = icon("fa fa-th-list"),
+                      h3("LUMPY somatic events (101-bp Illumina)"),
+                      div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
+                      h3("LUMPY somatic events (250-bp PCR-free Illumina)"),
+                      div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
+             ),
+             tabPanel(title="Pindel", icon = icon("fa fa-th-list"),
+                      h3("Pindel somatic events (101-bp Illumina)"),
+                      div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
+                      h3("Pindel somatic events (250-bp PCR-free Illumina)"),
+                      div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
+             ),
+             tabPanel(title="DELLY", icon = icon("fa fa-th-list"),
+                      h3("Delly somatic events (101-bp Illumina)"),
+                      div(dataTableOutput("delly_hcc1143_101"), style="font-size:70%"),
+                      h3("Delly somatic events (250-bp PCR-free Illumina)"),
+                      div(dataTableOutput("delly_hcc1143_250"), style="font-size:70%")
+             ),
+             tabPanel(title="Strelka", icon = icon("fa fa-th-list"),
+                      h3("Strelka somatic events (101-bp Illumina)"),
+                      div(dataTableOutput("strelka_hcc1143_101"), style="font-size:70%"),
+                      h3("Strelka somatic events (250-bp PCR-free Illumina)"),
+                      div(dataTableOutput("strelka_hcc1143_250"), style="font-size:70%")
+             ),
+             tabPanel(title="Platypus", icon = icon("fa fa-th-list"),
+                      h3("Platypus somatic events (101-bp Illumina)"),
+                      div(dataTableOutput("platypus_hcc1143_101"), style="font-size:70%"),
+                      h3("Platypus somatic events (250-bp PCR-free Illumina)"),
+                      div(dataTableOutput("platypus_hcc1143_250"), style="font-size:70%")
              )
+  )
   
   
   ))

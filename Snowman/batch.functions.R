@@ -363,7 +363,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     fo <- fo[fo$diff < 15]
     TPi <- unique(fo$id)
     ## isolate only events with span in range
-    TP <- unique(TPi[TPi %in% e$id[ix]])
+    TPi <- unique(TPi[TPi %in% e$id[ix]])
     
     FNi <- setdiff(unique(e$id), unique(fo$id))
     FPi <- xindel[unique(setdiff(seq_along(xindel), fo$query.id))]
@@ -378,8 +378,10 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
       FPi = FPi
     }
     
+    if (file.exists("/dev/shm/fpi.rds")) {
     saveRDS(FPi,"/dev/shm/fpi.rds")
     saveRDS(FNi,"/dev/shm/fni.rds")
+    }
     
     print(paste(c("TP Indel (<50bp)", length(TPi), "FP Indel", length(FPi))))
     print(paste(c("Indel Precision: ", pr <- length(TPi)/(length(TPi) + length(FPi)), "Indel Recall:", rc<-length(TPi)/num_indel), collapse=" "))
@@ -404,8 +406,16 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     id2 <- id[ixr]
     ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE)
 
-    FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
-
+    if (!is.na(ro2[1])) {
+      FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
+      TPs <- unique(this_id[ro[,2]], this_id[ro2[,2]])
+      FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
+    } else { 
+      FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), id[ro[,1]]))]
+      TPs <- unique(this_id[ro[,2]])
+      FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
+    }
+    
     if (type %in% c("indel", "medium")) {
       FPs <- FPs[FPs %in% valid] ## only count FP in our size range
     } else if (type == 'sv') {
@@ -414,17 +424,13 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
       FPs <- FPs
     }
     
-    TPs <- unique(this_id[ro[,2]], this_id[ro2[,2]])
-    FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
-    ##FNs <- unique(FNs[FNs %in% e$id[e$span >= 500 ]])
-
     print(paste(c("TP SV", length(TPs), "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))
     print(paste(c("SV Precision: ", pr <- length(TPs)/(length(TPs) + length(FPs)), "SV Recall:", rc<-length(TPs)/num_sv), collapse=" "))
     
   }
 
   tFP <- length(FPs) + length(FPi)
-  tTP = length(unique(c(TP,TPs)))
+  tTP = length(unique(c(TPi,TPs)))
   print(paste("Total FP:", tFP))
   print(paste("Total TP:", tTP))
   print(paste(c("Total Precision: ", pr <- tTP/(tTP + tFP), "Total Recall:", rc<-tTP/num_events), collapse=" "))
@@ -442,13 +448,14 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   isindel <- e$span <= INDEL_CUTOFF 
   df.indel <- data.frame(span=c(e$span[TPe & isindel & !ic.ix], e$span[FNe & isindel & !ic.ix], FP$SPAN[FP$SPAN <= INDEL_CUTOFF & FP$SPAN > 0]),
                          type=c(rep("TP", sum(TPe & isindel & !ic.ix)), rep("FN", sum(FNe & isindel & !ic.ix)), rep("FP", length(FP$SPAN[FP$SPAN <= INDEL_CUTOFF & FP$SPAN > 0]))))
-  df.indel$type = as.character(df.indel$type);    df.sv$type = as.character(df.sv$type)
-  df.indel$type <- factor(df.indel$type, levels=c("TP", "FP", "FN"));    df.sv$type <- factor(df.sv$type, levels=c("TP", "FP", "FN"))
+  df.indel$type = as.character(df.indel$type);    
+  df.indel$type <- factor(df.indel$type, levels=c("TP", "FP", "FN"));   
 
   ## MAKE THE SV PLOT
   df.sv       <- data.frame(span=log10(c(e$span[TPe & !isindel], e$span[FNe & !isindel], FP$SPAN[FP$SPAN > INDEL_CUTOFF & FP$SPAN > 0])),
                             type=c(rep("TP", sum(TPe & !isindel)), rep("FN", sum(FNe & !isindel)), rep("FP", length(FP$SPAN[FP$SPAN > INDEL_CUTOFF & FP$SPAN > 0]))))
-  
+  df.sv$type = as.character(df.sv$type)
+  df.sv$type <- factor(df.sv$type, levels=c("TP", "FP", "FN"))
 
    ## MAKE THE IC PLOT
    df.ic <- df.sv[df.sv$span==8,]
@@ -457,33 +464,15 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   labs <- c("TP"="True Positive", "FP"="False Positive", "FN"="False Negative")
   cols <- c("TP"="darkgreen", "FP"="darkred", "FN"="darkgrey")
   
-  if ("FP" %in% df.sv$type) {
-    labs.sv = c("True Positive", "False Positive", "False Negative"); cols.sv = 
-  } else {
-    labs.sv = c("True Positive", "False Negative"); cols.sv = c("darkgreen", "darkgrey")
-  }
-
-  if ("FP" %in% df.indel$type) {
-    labs.indel = c("True Positive", "False Positive", "False Negative"); cols.indel = c("darkgreen", "darkred", "darkgrey")
-  } else {
-    labs.indel = c("True Positive", "False Negative"); cols.indel = rev(c("darkgreen", "darkgrey")) ##hack
-  }
-
-  if ("FP" %in% df.ic$type) {
-    labs.ic = c("True Positive", "False Positive", "False Negative"); cols.ic = c("darkgreen", "darkred", "darkgrey")
-  } else {
-    labs.ic = c("True Positive", "False Negative"); cols.ic = c("darkgreen", "darkgrey")
-  }
-
   ## top, left, bottom, right
   g.sv <- ggplot() + geom_histogram(data=df.sv[df.sv$span < 7.7,],    aes(x=span, fill=type),binwidth=0.05) + theme_bw() + xlab("Distance (bp)") + ylab("Num Events") + scale_x_continuous(expand = c(0, 0), breaks=1:7, label=parse(text=paste("10", 1:7,sep="^"))) + scale_fill_manual(values=cols, name="", labels=labs) + coord_cartesian(xlim=c(1,7.7)) + theme(plot.margin=grid::unit(c(1,0,1,-0.5), "cm"), legend.position="none") + ylab("") + scale_y_continuous(expand = c(0, 0))
   g.in <- ggplot() + geom_histogram(data=df.indel, aes(x=span, fill=type),binwidth=1)   + theme_bw() + xlab("Distance (bp)") + ylab("Num Events") + scale_x_continuous(expand = c(0, 0), breaks=1:9) + scale_y_continuous(expand = c(0, 0)) + scale_fill_manual(values=cols, name="", labels=labs) + theme(legend.position="none",plot.margin=grid::unit(c(1,0.3,1,1), "cm")) + coord_cartesian(ylim=c(0,19600))
   g.ic <- ggplot() + geom_histogram(data=df.ic, aes(x=as.numeric(span), fill=type), binwidth=1) + theme_bw() + xlab("") + ylab("Num Events") + scale_x_discrete(label=c("IC"),expand = c(0, 0)) + theme(plot.margin=grid::unit(c(1,0.3,1.5,-0.3), "cm"),legend.position="none") + ylab("") + scale_fill_manual(values=cols, name="", labels=labs) + scale_y_continuous(expand = c(0, 0))
   require(gridExtra)
 
-  ppdf(grid.arrange(g.in, g.sv, g.ic, ncol=3, widths=c(2.5,5,0.8)), width=8, height=3, filename=fname)
+  g <- grid.arrange(g.in, g.sv, g.ic, ncol=3, widths=c(2.5,5,0.8)) #, width=8, height=3, filename=fname)
 
-  return(df)
+  return(list(df=df, g=g, TP=TPe))
 }
 
 grl2links <- function(x) {

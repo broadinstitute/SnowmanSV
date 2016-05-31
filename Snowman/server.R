@@ -7,10 +7,15 @@
 # 
 library(shiny)
 library(plotly)
+library(knitr)
 source("helper.R")
 
 shinyServer(function(input, output) {
 
+  output$markdown <- renderUI({
+    HTML(markdown::markdownToHTML(knit('README.rmd', quiet = TRUE)))
+  })
+  
   output$snowman_NA12878_table <- renderDataTable(snow.dels.NA12878, options=list(pageLength = 10))
   output$truth_NA12878_table <- renderDataTable(truth.NA12878$dt, options=list(pageLength = 10))
   output$truth_NA12878_table2 <- renderDataTable(truth2.NA12878$dt, options=list(pageLength = 10))

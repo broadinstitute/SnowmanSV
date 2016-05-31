@@ -7,6 +7,7 @@
 # 
 library(shiny)
 library(plotly)
+library(knitr)
 source("helper.R")
 
 shinyUI(navbarPage(inverse=TRUE,
@@ -19,7 +20,7 @@ shinyUI(navbarPage(inverse=TRUE,
                  "was created by:"
                ),
                #div(
-                 img(src="https://avatars1.githubusercontent.com/u/6922120?v=3&s=460", height = 100, width=100, style='border-radius:50px'),
+                 img(src="https://avatars1.githubusercontent.com/u/6922120?v=3&s=460", height = 100, width=100, style='border-radius:50px', align='center'),
                  br(),
                  a("Jeremiah Wala", href="https://github.com/jwalabroad", target="_blank"),
                  br(),br(),
@@ -41,12 +42,14 @@ shinyUI(navbarPage(inverse=TRUE,
               # )#,
                #div(style = 'clear: left;')
              ),
-             mainPanel(p("sdf"))
+             mainPanel(
+               img(src='schematic_snowman.png', align = "right", width="100%")
+             )
           )
   ),
   navbarMenu(title="Documentation",
     tabPanel(title="README",
-           h3("HTML to go here")
+             uiOutput('markdown')
     )
   ),
   # navbarMenu(title="De novo assemblies",

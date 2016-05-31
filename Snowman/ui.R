@@ -14,7 +14,7 @@ shinyUI(navbarPage(inverse=TRUE,
   title="Snowman - Structural variation detection by genome-wide local assembly",
   tabPanel(title="Home", icon = icon("fa fa-home"),
            sidebarLayout(
-              sidebarPanel(width=3,
+              sidebarPanel(width=2,
 
                  p("",a("Snowman", href="https://github.com/broadinstitute/SnowmanSV", target="_blank" ),
                  "was created by:"
@@ -37,18 +37,24 @@ shinyUI(navbarPage(inverse=TRUE,
                  img(src="http://springerlab.tch.harvard.edu/springer/uploads/Alumni/cheng-zhongzhang.jpg", height = 100, width=100 , style='border-radius:50px'),
                  br(),
                  a("Cheng-Zhong Zhang", href="http://www.ncbi.nlm.nih.gov/pubmed/?term=Zhang%20CZ%5Bauth%5D", target="_blank"),
-          br(),br()
-              #   style = 'float:left; text-align:center'
-              # )#,
-               #div(style = 'clear: left;')
+          br(),br(),
+          p("in the labs of: "),
+          img(src="http://doctors.dana-farber.org/photos/6602899.jpg", height = 100, width=100 , style='border-radius:50px'),
+          br(),
+          a("Rameen Beroukhim", href="http://beroukhimlab.dfci.harvard.edu/Beroukhim_Laboratory.html", target="_blank"),
+          br(),br(),
+          img(src="http://meyersonlab.dana-farber.org/uploads/5/2/2/7/52274861/6071117_orig.jpg", height = 100, width=100 , style='border-radius:50px'),
+          br(),
+          a("Matthew Meyerson", href="http://meyersonlab.dana-farber.org/", target="_blank"),
+          br(), br()
              ),
              mainPanel(
-               img(src='schematic_snowman.png', align = "right", width="100%")
+               img(src='schematic_snowman.png', align = "left", width="70%")
              )
           )
   ),
   navbarMenu(title="Documentation",
-    tabPanel(title="README",
+    tabPanel(title="README", icon = icon(lib="font-awesome", "file-text-o"),
              uiOutput('markdown')
     )
   ),
@@ -69,7 +75,7 @@ shinyUI(navbarPage(inverse=TRUE,
            h3("NA12878 deletions from Pindel"),
            div(dataTableOutput("pindel_NA12878_table"), style="font-size:70%")
            ),
-  tabPanel(title="Comparison figures",
+  tabPanel(title="Comparison figures", icon = icon(lib="font-awesome", "bar-chart"),
            h3("Events detected"),
            plotlyOutput("na12878_set")
            )
@@ -79,7 +85,7 @@ shinyUI(navbarPage(inverse=TRUE,
                       h3("Simulated SVs"),
                       div(dataTableOutput("simulated_events_table"), style="font-size:70%")
                       ),
-            tabPanel(title="Caller plots",
+            tabPanel(title="Caller plots",icon= icon(lib="font-awesome", "bar-chart"),
                      selectInput("sim_select", label="Select data to plot", choices=c("Snowman 10X", "Snowman 5X", "Snowman 2X", "Pindel 10X", "Pindel 5X", "Pindel 2X"), selected="Snowman 10X"),
                      selectInput("tum_support_sim", label="Select minimum T_ALT", choices=c("PASS-ONLY",2:10), selected="PASS-ONLY"),
                      selectInput("sim_plot_evdnc", label="Select EVDNC to plot", choices=c("ALL", "INDEL", "ALL-SV", "ASSMB","ASDIS","DSCRD","COMPL"), selected="ALL"),

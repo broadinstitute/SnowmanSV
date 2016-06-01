@@ -8,7 +8,7 @@
 library(shiny)
 library(plotly)
 library(knitr)
-source("helper.R")
+#source("helper.R")
 
 shinyUI(navbarPage(inverse=TRUE,
   title="Snowman - Structural variation detection by genome-wide local assembly",
@@ -56,7 +56,10 @@ shinyUI(navbarPage(inverse=TRUE,
   navbarMenu(title="Documentation",
     tabPanel(title="README", icon = icon(lib="font-awesome", "file-text-o"),
              uiOutput('markdown')
-    )
+    ),
+    tabPanel(title="Recipes", icon = icon(lib="font-awesome", "cutlery"),
+             uiOutput('recipes')
+             )
   ),
   # navbarMenu(title="De novo assemblies",
   #    tabPanel(title="HCC1143",

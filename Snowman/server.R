@@ -13,7 +13,11 @@ source("helper.R")
 shinyServer(function(input, output) {
 
   output$markdown <- renderUI({
-    HTML(markdown::markdownToHTML(knit('README.rmd', quiet = TRUE)))
+    HTML(markdown::markdownToHTML(knit('README.Rmd', quiet = TRUE)))
+  })
+  
+  output$recipes <- renderUI({
+    HTML(markdown::markdownToHTML(knit('RECIPES.Rmd', quiet = TRUE)))
   })
   
   output$snowman_NA12878_table <- renderDataTable(snow.dels.NA12878, options=list(pageLength = 10))

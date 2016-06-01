@@ -27,7 +27,92 @@ shinyServer(function(input, output) {
   
   output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
   
+  getStrelkaSimData <- reactive({
+    
+    if (input$sim_select == "Strelka 2X") {
+      ff <- readRDS("data/strelka_sim.rds")[[3]]
+    } else if (input$sim_select == "Strelka 5X") {
+      ff <- readRDS("data/strelka_sim.rds")[[4]]
+    } else if (input$sim_select == "Strelka 10X") {
+      ff <- readRDS("data/strelka_sim.rds")[[2]]
+    }
+    
+    if (input$tum_support_sim == "PASS-ONLY") {
+      talt = 5;
+      nalt = 0;
+    } else {
+      talt = input$tum_support_sim
+      nalt = 0;
+    }
+    
+    ff$SPAN <- ff$CALC_SPAN
+    
+    ff <- ff[ff$NV_t >= talt]
+    
+    return(list(sv=GRangesList(), indel=ff))
+    
+  })
+  
+  getPlatypusSimData <- reactive({
+    print("...getting platypus data")
+    
+    if (input$sim_select == "Platypus 2X") {
+      ff <- readRDS("data/platypus_sim.rds")[[3]]
+    } else if (input$sim_select == "Platypus 5X") {
+      ff <- readRDS("data/platypus_sim.rds")[[4]]
+    } else if (input$sim_select == "Platypus 10X") {
+      ff <- readRDS("data/platypus_sim.rds")[[2]]
+    }
+    
+    if (input$tum_support_sim == "PASS-ONLY") {
+      talt = 5;
+      nalt = 0;
+    } else {
+      talt = input$tum_support_sim
+      nalt = 0;
+    }
+    
+    ff <- ff[ff$NV_t >= talt]
+    
+    return(list(sv=GRangesList(), indel=ff))
+    
+  })
+  
+  getLumpySimData <- reactive({
+    print("...getting lumpy data")
+    
+    if (input$sim_select == "Lumpy 2X") {
+      ff <- readRDS("data/lumpy_sim.rds")[[3]]
+    } else if (input$sim_select == "Lumpy 5X") {
+      ff <- readRDS("data/lumpy_sim.rds")[[4]]
+    } else if (input$sim_select == "Lumpy 10X") {
+      ff <- readRDS("data/lumpy_sim.rds")[[2]]
+    }
+    
+    if (input$tum_support_sim == "PASS-ONLY") {
+      talt = 5;
+      nalt = 0;
+    } else {
+      talt = input$tum_support_sim
+      nalt = 0;
+    }
+    
+    mcols(ff)$TUMALT <- mcols(ff)$SR + mcols(ff)$PE
+    ff <- ff[mcols(ff)$TUMALT >= talt]
+    mcols(ff)$SPAN <- mcols(ff)$span
+    
+    print(paste("LEN " , length(ff)))
+    #snowi = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
+    #print(length(snowi))
+    #snow  = GRangesList()
+    
+    return(list(sv=ff, indel=GRanges()))
+    
+    
+  })
+  
   getPindelSimData <- reactive({
+    
     print("...getting pindel data")
     if (input$sim_select == "Pindel 2X") {
       ff <- readRDS("data/pindel_sim.rds")[[3]]
@@ -108,9 +193,17 @@ shinyServer(function(input, output) {
       else
         snow.10X <- flag.plot(xsv=dat$sv, xindel=dat$indel, e=gr.events)
     } else if (grepl("Pindel", input$sim_select)) {
-      data <- getPindelSimData()
-      print(paste("NROW DTA", length(dat$indel)))
+      dat <- getPindelSimData()
+      print(paste("NROW DAT", length(dat$indel)))
       snow.10X <- flag.plot(xindel=data$indel, e=gr.events)
+    } else if (grepl("Lumpy", input$sim_select)) {
+      dat <- getLumpySimData()
+      print(paste("NROW LUMPY", length(dat$sv)))
+      snow.10X <- flag.plot(xsv=dat$sv, e=gr.events)
+    } else if (grepl("Platypus", input$sim_select)) {
+      dat <- getPlatypusSimData()
+      print(paste("NROW PLATPUS", length(dat$indel)))
+      snow.10X <- flag.plot(xindel=dat$indel, e=gr.events)
     }
     
     return (snow.10X)

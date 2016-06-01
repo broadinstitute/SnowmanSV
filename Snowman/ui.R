@@ -53,88 +53,84 @@ shinyUI(navbarPage(inverse=TRUE,
              )
           )
   ),
-  navbarMenu(title="Documentation",
-    tabPanel(title="README", icon = icon(lib="font-awesome", "file-text-o"),
-             uiOutput('markdown')
-    ),
-    tabPanel(title="Recipes", icon = icon(lib="font-awesome", "cutlery"),
-             uiOutput('recipes')
-             )
-  ),
-  # navbarMenu(title="De novo assemblies",
-  #    tabPanel(title="HCC1143",
-  #             h3("Whole-genome de novo assembly with DISCOVAR of HCC1143 with 250-bp PCR-free Illumina Paired-End Reads"),
-  #             div(dataTableOutput("discovar_hcc1143_events"), style="font-size:70%")
-  #    )
-  # ),
-  navbarMenu("NA12878",
-  tabPanel(title="Data tables",icon = icon("fa fa-th-list"),
-           h3("NA12878 deletions from 1000 Genomes (Mills et al)"),
-           div(dataTableOutput("truth_NA12878_table"), style="font-size:70%"),
-           h3("NA12878 deletions from 1000 Genomes + Validated LUMPY+DELLY+GASVPro+Pindel (Layer et al)"),
-           div(dataTableOutput("truth_NA12878_table2"), style="font-size:70%"),
-           h3("NA12878 deletions from Snowman"),
-           div(dataTableOutput("snowman_NA12878_table"), style="font-size:70%"),
-           h3("NA12878 deletions from Pindel"),
-           div(dataTableOutput("pindel_NA12878_table"), style="font-size:70%")
-           ),
-  tabPanel(title="Comparison figures", icon = icon(lib="font-awesome", "bar-chart"),
-           h3("Events detected"),
-           plotlyOutput("na12878_set")
-           )
-  ),
-  navbarMenu("Simulated tumor",
-             tabPanel(title="Events table", icon = icon("fa fa-th-list"),
-                      h3("Simulated SVs"),
-                      div(dataTableOutput("simulated_events_table"), style="font-size:70%")
-                      ),
-            tabPanel(title="Caller plots",icon= icon(lib="font-awesome", "bar-chart"),
-                     selectInput("sim_select", label="Select data to plot", choices=c("Snowman 10X", "Snowman 5X", "Snowman 2X", "Pindel 10X", "Pindel 5X", "Pindel 2X"), selected="Snowman 10X"),
-                     selectInput("tum_support_sim", label="Select minimum T_ALT", choices=c("PASS-ONLY",2:10), selected="PASS-ONLY"),
-                     selectInput("sim_plot_evdnc", label="Select EVDNC to plot", choices=c("ALL", "INDEL", "ALL-SV", "ASSMB","ASDIS","DSCRD","COMPL"), selected="ALL"),
-                     
-                     plotOutput("sim_plot"),
-                     plotlyOutput("sim_type_plot", width="80%")
-                     )
-  ),
-  navbarMenu("HCC1143",
-             tabPanel(title="Snowman", icon = icon("fa fa-th-list"),
-                      h3("Snowman somatic events (101-bp Illumina)"),
-                      #div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
-                      h3("Snowman somatic events (250-bp PCR-free Illumina)")
-                      #div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
-             ),
-             tabPanel(title="LUMPY", icon = icon("fa fa-th-list"),
-                      h3("LUMPY somatic events (101-bp Illumina)"),
-                      #div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
-                      h3("LUMPY somatic events (250-bp PCR-free Illumina)")
-                      #div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
-             ),
-             tabPanel(title="Pindel", icon = icon("fa fa-th-list"),
-                      h3("Pindel somatic events (101-bp Illumina)"),
-                      #div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
-                      h3("Pindel somatic events (250-bp PCR-free Illumina)")
-                      #div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
-             ),
-             tabPanel(title="DELLY", icon = icon("fa fa-th-list"),
-                      h3("Delly somatic events (101-bp Illumina)"),
-                      #div(dataTableOutput("delly_hcc1143_101"), style="font-size:70%"),
-                      h3("Delly somatic events (250-bp PCR-free Illumina)")
-                      #div(dataTableOutput("delly_hcc1143_250"), style="font-size:70%")
-             ),
-             tabPanel(title="Strelka", icon = icon("fa fa-th-list"),
-                      h3("Strelka somatic events (101-bp Illumina)"),
-                      #div(dataTableOutput("strelka_hcc1143_101"), style="font-size:70%"),
-                      h3("Strelka somatic events (250-bp PCR-free Illumina)")
-                      #div(dataTableOutput("strelka_hcc1143_250"), style="font-size:70%")
-             ),
-             tabPanel(title="Platypus", icon = icon("fa fa-th-list"),
-                      h3("Platypus somatic events (101-bp Illumina)"),
-                      #div(dataTableOutput("platypus_hcc1143_101"), style="font-size:70%"),
-                      h3("Platypus somatic events (250-bp PCR-free Illumina)")
-                      #div(dataTableOutput("platypus_hcc1143_250"), style="font-size:70%")
-             )
-  )
-  ))
+   navbarMenu(title="Documentation",
+     tabPanel(title="README", icon = icon(lib="font-awesome", "file-text-o"),
+              uiOutput('markdown')
+     ),
+     tabPanel(title="Recipes", icon = icon(lib="font-awesome", "cutlery"),
+              uiOutput('recipes')
+              )
+   ),
+   navbarMenu("NA12878",
+   tabPanel(title="Data tables",icon = icon("fa fa-th-list"),
+          h3("NA12878 deletions from 1000 Genomes (Mills et al)"),
+            div(dataTableOutput("truth_NA12878_table"), style="font-size:70%"),
+            h3("NA12878 deletions from 1000 Genomes + Validated LUMPY+DELLY+GASVPro+Pindel (Layer et al)"),
+            div(dataTableOutput("truth_NA12878_table2"), style="font-size:70%"),
+            h3("NA12878 deletions from Snowman"),
+            div(dataTableOutput("snowman_NA12878_table"), style="font-size:70%"),
+            h3("NA12878 deletions from Pindel"),
+            div(dataTableOutput("pindel_NA12878_table"), style="font-size:70%")
+          ),
+   tabPanel(title="Comparison figures", icon = icon(lib="font-awesome", "bar-chart"),
+            h3("Events detected"),
+            plotlyOutput("na12878_set")
+            )
+   ),
+   navbarMenu("Simulated tumor",
+              tabPanel(title="Events table", icon = icon("fa fa-th-list"),
+                       h3("Simulated SVs"),
+                     div(dataTableOutput("simulated_events_table"), style="font-size:70%")
+                       ),
+             tabPanel(title="Caller plots",icon= icon(lib="font-awesome", "bar-chart"),
+                      selectInput("sim_select", label="Select data to plot", 
+                                  choices=c("Snowman 10X", "Snowman 5X", "Snowman 2X", "Pindel 10X", "Pindel 5X", "Pindel 2X",
+                                            "Lumpy 10X", "Lumpy 5X", "Lumpy 2X", "Platypus 2X", "Platypus 5X", "Platypus 10X"), selected="Snowman 10X"),
+                      selectInput("tum_support_sim", label="Select minimum T_ALT", choices=c("PASS-ONLY",2:10), selected="PASS-ONLY"),
+                      selectInput("sim_plot_evdnc", label="Select EVDNC to plot", choices=c("ALL", "INDEL", "ALL-SV", "ASSMB","ASDIS","DSCRD","COMPL"), selected="ALL"),
+                   
+                      plotOutput("sim_plot"),
+                      plotlyOutput("sim_type_plot", width="80%")
+                      )
+   ),
+   navbarMenu("HCC1143",
+              tabPanel(title="Snowman", icon = icon("fa fa-th-list"),
+                       h3("Snowman somatic events (101-bp Illumina)"),
+                       #div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
+                       h3("Snowman somatic events (250-bp PCR-free Illumina)")
+                       #div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
+              ),
+              tabPanel(title="LUMPY", icon = icon("fa fa-th-list"),
+                       h3("LUMPY somatic events (101-bp Illumina)"),
+                       #div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
+                       h3("LUMPY somatic events (250-bp PCR-free Illumina)")
+                       #div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
+              ),
+              tabPanel(title="Pindel", icon = icon("fa fa-th-list"),
+                       h3("Pindel somatic events (101-bp Illumina)"),
+                       #div(dataTableOutput("pindel_hcc1143_101"), style="font-size:70%"),
+                       h3("Pindel somatic events (250-bp PCR-free Illumina)")
+                       #div(dataTableOutput("pindel_hcc1143_250"), style="font-size:70%")
+              ),
+              tabPanel(title="DELLY", icon = icon("fa fa-th-list"),
+                       h3("Delly somatic events (101-bp Illumina)"),
+                       #div(dataTableOutput("delly_hcc1143_101"), style="font-size:70%"),
+                       h3("Delly somatic events (250-bp PCR-free Illumina)")
+                       #div(dataTableOutput("delly_hcc1143_250"), style="font-size:70%")
+              ),
+              tabPanel(title="Strelka", icon = icon("fa fa-th-list"),
+                       h3("Strelka somatic events (101-bp Illumina)"),
+                       #div(dataTableOutput("strelka_hcc1143_101"), style="font-size:70%"),
+                       h3("Strelka somatic events (250-bp PCR-free Illumina)")
+                       #div(dataTableOutput("strelka_hcc1143_250"), style="font-size:70%")
+              ),
+              tabPanel(title="Platypus", icon = icon("fa fa-th-list"),
+                       h3("Platypus somatic events (101-bp Illumina)"),
+                       #div(dataTableOutput("platypus_hcc1143_101"), style="font-size:70%"),
+                       h3("Platypus somatic events (250-bp PCR-free Illumina)")
+                       #div(dataTableOutput("platypus_hcc1143_250"), style="font-size:70%")
+              )
+   )
+   ))
 
 

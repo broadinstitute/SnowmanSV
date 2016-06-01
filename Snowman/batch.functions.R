@@ -457,6 +457,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   df.sv$type = as.character(df.sv$type)
   df.sv$type <- factor(df.sv$type, levels=c("TP", "FP", "FN"))
 
+  
    ## MAKE THE IC PLOT
    df.ic <- df.sv[df.sv$span==8,]
    df.ic$span <- factor(df.ic$span)

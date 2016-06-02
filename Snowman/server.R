@@ -27,6 +27,31 @@ shinyServer(function(input, output) {
   
   output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
   
+  getDellySimData <- reactive({
+    
+    if (input$sim_select == "DELLY 2X") {
+      ff <- readRDS("data/delly_sim.rds")[[3]]
+    } else if (input$sim_select == "DELLY 5X") {
+      ff <- readRDS("data/delly_sim.rds")[[4]]
+    } else if (input$sim_select == "DELLY 10X") {
+      ff <- readRDS("data/delly_sim.rds")[[2]]
+    }
+    
+    if (input$tum_support_sim == "PASS-ONLY") {
+      talt = 0;
+      nalt = 0;
+    } else {
+      talt = as.numeric(input$tum_support_sim)
+      nalt = 0;
+    }
+
+    mcols(ff)$TALT <- mcols(ff)$TSPLIT + mcols(ff)$TDISC
+    ff <- ff[mcols(ff)$TALT >= talt]
+    
+    return(ff)
+    
+  })
+  
   getStrelkaSimData <- reactive({
     
     if (input$sim_select == "Strelka 2X") {
@@ -38,18 +63,18 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
     
     ff$SPAN <- ff$CALC_SPAN
     
-    ff <- ff[ff$NV_t >= talt]
+    ff <- ff[ff$TALT >= talt]
     
-    return(list(sv=GRangesList(), indel=ff))
+    return(ff)
     
   })
   
@@ -65,16 +90,16 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
     
     ff <- ff[ff$NV_t >= talt]
     
-    return(list(sv=GRangesList(), indel=ff))
+    return(ff)
     
   })
   
@@ -90,10 +115,10 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
     
@@ -106,7 +131,7 @@ shinyServer(function(input, output) {
     #print(length(snowi))
     #snow  = GRangesList()
     
-    return(list(sv=ff, indel=GRanges()))
+    return(ff)
     
     
   })
@@ -123,18 +148,18 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
-    print(paste("LEN " , length(ff)))
-    snowi = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
-    print(length(snowi))
-    snow  = GRangesList()
+
+    print(talt)
+    ff = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
+    print(length(ff))
     
-    return(list(sv=snow, indel=snowi))
+    return(ff)
     
   })
   
@@ -187,26 +212,24 @@ shinyServer(function(input, output) {
     if (grepl("Snowman", input$sim_select)) {
       dat <- getSnowmanSimData()
       if (input$sim_plot_evdnc %in% c("ALL-SV","ASSMB","ASDIS","DSCRD","COMPL"))
-        snow.10X <- flag.plot(xsv=dat$sv, e=gr.events)
+        flagp <- flag.plot(xsv=dat$sv, e=gr.events)
       else if (input$sim_plot_evdnc == "INDEL")
-        snow.10X <- flag.plot(xindel=dat$indel, e=gr.events)
+        flagp <- flag.plot(xindel=dat$indel, e=gr.events)
       else
-        snow.10X <- flag.plot(xsv=dat$sv, xindel=dat$indel, e=gr.events)
+        flagp <- flag.plot(xsv=dat$sv, xindel=dat$indel, e=gr.events)
     } else if (grepl("Pindel", input$sim_select)) {
-      dat <- getPindelSimData()
-      print(paste("NROW DAT", length(dat$indel)))
-      snow.10X <- flag.plot(xindel=data$indel, e=gr.events)
+      flagp <- flag.plot(xindel=getPindelSimData(), e=gr.events)
     } else if (grepl("Lumpy", input$sim_select)) {
-      dat <- getLumpySimData()
-      print(paste("NROW LUMPY", length(dat$sv)))
-      snow.10X <- flag.plot(xsv=dat$sv, e=gr.events)
+      flagp <- flag.plot(xsv=getLumpySimData(), e=gr.events)
     } else if (grepl("Platypus", input$sim_select)) {
-      dat <- getPlatypusSimData()
-      print(paste("NROW PLATPUS", length(dat$indel)))
-      snow.10X <- flag.plot(xindel=dat$indel, e=gr.events)
+      flagp <- flag.plot(xindel=getPlatypusSimData(), e=gr.events)
+    } else if (grepl("Strelka", input$sim_select)) {
+      flagp <- flag.plot(xindel=getPlatypusSimData(), e=gr.events)
+    } else if (grepl("DELLY", input$sim_select)) {
+      flagp <- flag.plot(xsv=getDellySimData(), e=gr.events)
     }
     
-    return (snow.10X)
+    return (flagp)
     
   })
   

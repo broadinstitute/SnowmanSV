@@ -20,10 +20,10 @@ shinyServer(function(input, output) {
     HTML(markdown::markdownToHTML(knit('RECIPES.Rmd', quiet = TRUE)))
   })
   
-  output$snowman_NA12878_table <- renderDataTable(snow.dels.NA12878, options=list(pageLength = 10))
+  output$snowman_NA12878_table <- renderDataTable(snowman12878$dels, options=list(pageLength = 10))
   output$truth_NA12878_table <- renderDataTable(truth.NA12878$dt, options=list(pageLength = 10))
   output$truth_NA12878_table2 <- renderDataTable(truth2.NA12878$dt, options=list(pageLength = 10))
-  output$pindel_NA12878_table <- renderDataTable(pindel.dels, options=list(pageLength = 10))
+  output$pindel_NA12878_table <- renderDataTable(pindel12878$dels, options=list(pageLength = 10))
   
   output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
   
@@ -126,7 +126,8 @@ shinyServer(function(input, output) {
     ff <- ff[mcols(ff)$TUMALT >= talt]
     mcols(ff)$SPAN <- mcols(ff)$span
     
-    print(paste("LEN " , length(ff)))
+    print(paste(c("TALT", talt)))
+    print(paste("LUMPY LEN " , length(ff)))
     #snowi = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
     #print(length(snowi))
     #snow  = GRangesList()
@@ -157,7 +158,7 @@ shinyServer(function(input, output) {
 
     print(talt)
     ff = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
-    print(length(ff))
+    print(paste("Filtered PINDEL length",length(ff)))
     
     return(ff)
     
@@ -181,10 +182,10 @@ shinyServer(function(input, output) {
       #snow  <- .load_snowman_vcf_datatable("data/160413_2x_sim.snowman.somatic.sv.vcf")
       #snowi <- load_indel("data/160413_2x_sim.snowman.somatic.indel.vcf")
     } 
-    
+   # cix <- evidence != "COMPL"
     if (input$tum_support_sim == "PASS-ONLY") {
       snowi = ff[(confidence == "PASS"| true_lod > LOD) & somatic_score & evidence == "INDEL"]
-      snow  = ff[confidence == "PASS" & somatic_score & evidence != "INDEL"]
+      snow  = ff[confidence == "PASS" & somatic_score & evidence != "INDEL" & evidence != "COMPL"]
     } else {
       snowi = ff[( (T_ALT >= as.integer(input$tum_support_sim) & confidence %in% c("LOWLOD","PASS") & N_ALT < 2)) & evidence == "INDEL"]
       snow <- ff[((T_ALT >= as.integer(input$tum_support_sim) & confidence %in% c("WEAKASSEMBLY", "LOWSUPPORT", "PASS") & N_ALT < 2)) & evidence != "INDEL"]
@@ -243,21 +244,21 @@ shinyServer(function(input, output) {
     dat <- getFlagPlotOutput()
 
     progress$inc(3/4, detail = paste("...rendering plot"))
-    return(dat$g)
+    dat$g
 
   })
   
   output$na12878_set <- renderPlotly({
     
-    df <- data.frame(TP=c(TP_snowman1,
-                          TP_snowman2,
-                          TP_pindel1,
-                          TP_pindel2,
+    df <- data.frame(TP=c(snowman12878$TP1,
+                          snowman12878$TP2,
+                          pindel12878$TP1,
+                          pindel12878$TP2,
                           nrow(truth.NA12878$dt),
                           nrow(truth2.NA12878$dt)),
                      CALLER=c("Snowman","Snowman","Pindel","Pindel","Truth","Truth"),
                      SET=rep(c("Deletion Set 1","Deletion Set 2"),3),
-                     FP=c(FP_snowman1,FP_snowman2, FP_pindel1, FP_pindel2, 0,0))
+                     FP=c(snowman12878$FP1,snowman12878$FP2, pindel12878$FP1, pindel12878$FP2, 0,0))
     
     g <- ggplot(data=melt(df, id.vars=c("SET","CALLER"))) + geom_bar(position='dodge',aes(x=CALLER, fill=variable, y=value), stat='identity') + facet_wrap(~ SET) + 
       ylab("Event count") + xlab("") + scale_fill_manual(name="", values=c("TP"="black","FP"="grey"), labels=c("TP"="Detected deletion","FP"="Unvalidated call")) 
@@ -266,7 +267,7 @@ shinyServer(function(input, output) {
     
   })
   
-  output$sim_type_plot <- renderPlotly({
+  output$sim_type_plot <- renderPlot({
     
     d <- getFlagPlotOutput()
 
@@ -277,8 +278,9 @@ shinyServer(function(input, output) {
       scale_fill_manual(values=c("TRUE"="darkgreen","FALSE" ="grey"), labels=c("TRUE"="TP","FALSE"="FN"), name='') +
       xlab("") + ylab("Event Count") + scale_y_continuous(expand = c(0, 0)) + 
       scale_x_discrete(expand = c(0, 0), labels=c("RARI"="Rearrangement (>= 10 bp ins)", "RAR"="Rearrangement","INT"="Translocation","ins"="insertion < 100bp", "del"="deletion < 100 bp", "DEL"="Deletion > 100 bp", "DUP"="Tandem duplication")) + coord_flip()
-    p <- ggplotly(g)
-    p
+    print(g)
+    #p <- ggplotly(g)
+    #p
     
   })
 

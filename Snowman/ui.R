@@ -87,11 +87,11 @@ shinyUI(navbarPage(inverse=TRUE,
                                   choices=c("Snowman 10X", "Snowman 5X", "Snowman 2X", "Pindel 10X", "Pindel 5X", "Pindel 2X",
                                             "Lumpy 10X", "Lumpy 5X", "Lumpy 2X", "Platypus 2X", "Platypus 5X", "Platypus 10X",
                                             "Strelka 2X", "Strelka 5X", "Strelka 10X", "DELLY 2X","DELLY 5X", "DELLY 10X"), selected=""),
-                      selectInput("tum_support_sim", label="Select minimum T_ALT", choices=c("PASS-ONLY",2:10), selected="PASS-ONLY"),
+                      selectInput("tum_support_sim", label="Select minimum T_ALT", choices=c("PASS-ONLY",2:9), selected="PASS-ONLY"),
                       selectInput("sim_plot_evdnc", label="Select EVDNC to plot", choices=c("ALL", "INDEL", "ALL-SV", "ASSMB","ASDIS","DSCRD","COMPL"), selected="ALL"),
                    
                       plotOutput("sim_plot"),
-                      plotlyOutput("sim_type_plot", width="80%")
+                      plotOutput("sim_type_plot", width="80%")
                       )
    ),
    navbarMenu("HCC1143",

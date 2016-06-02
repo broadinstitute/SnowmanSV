@@ -8,59 +8,91 @@
 library(shiny)
 library(plotly)
 library(knitr)
+library(markdown)
 #source("helper.R")
 
 shinyUI(navbarPage(inverse=TRUE,
   title="Snowman - Structural variation detection by genome-wide local assembly",
+  # tabPanel(title="sfd",
+  #          includeHTML("README.html")
+  #          ),
   tabPanel(title="Home", icon = icon("fa fa-home"),
-           sidebarLayout(
-              sidebarPanel(width=2,
-
-                 p("",a("Snowman", href="https://github.com/broadinstitute/SnowmanSV", target="_blank" ),
-                 "was created by:"
-               ),
-               #div(
-                 img(src="https://avatars1.githubusercontent.com/u/6922120?v=3&s=460", height = 100, width=100, style='border-radius:50px', align='center'),
-                 br(),
-                 a("Jeremiah Wala", href="https://github.com/jwalabroad", target="_blank"),
-                 br(),br(),
-                # style = 'float:left; text-align:center'
-               #),
-               #div(
-                 img(src="http://www.nygenome.org/wp-content/uploads/2015/10/Imielinski-headshot.jpeg", height = 100, width=100 , style='border-radius:50px'),
-                 br(),
-                 a("Marcin Imielinski", href="http://www.nygenome.org/lab-groups-overview/imielinski-lab/", target="_blank"),
-               br(),br(),
-                # style = 'float:left; text-align:center'
-               #),
-               #div(
-                 img(src="http://springerlab.tch.harvard.edu/springer/uploads/Alumni/cheng-zhongzhang.jpg", height = 100, width=100 , style='border-radius:50px'),
-                 br(),
-                 a("Cheng-Zhong Zhang", href="http://www.ncbi.nlm.nih.gov/pubmed/?term=Zhang%20CZ%5Bauth%5D", target="_blank"),
-          br(),br(),
-          p("in the labs of: "),
-          img(src="rameen_pic.jpg", height = 100, width=100 , style='border-radius:50px'),
-          br(),
-          a("Rameen Beroukhim", href="http://beroukhimlab.dfci.harvard.edu/Beroukhim_Laboratory.html", target="_blank"),
-          br(),br(),
-          img(src="http://meyersonlab.dana-farber.org/uploads/5/2/2/7/52274861/6071117_orig.jpg", height = 100, width=100 , style='border-radius:50px'),
-          br(),
-          a("Matthew Meyerson", href="http://meyersonlab.dana-farber.org/", target="_blank"),
-          br(), br()
+           fluidPage(
+             h2("Snowman", align="center"),
+             h4("Structural variation and indel detection by genome-wide local assembly", align="center"),
+             br(),br(),
+             fluidRow(column(width=5,align="right",
+             a(img(src="http://www.broadinstitute.org/collaboration/gcc/wp-content/uploads/2011/07/broad-logo.jpg", width=200),href="http://www.broadinstitute.org/", target="_blank")
+             ), column(width=1,
+               p("")
              ),
-             mainPanel(
-               img(src='schematic_snowman.png', align = "left", width="70%")
+             column(width=5,align="left",
+               a(img(src="https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Dana-Farber_Cancer_Institute_logo.svg/1280px-Dana-Farber_Cancer_Institute_logo.svg.png", width=200),href="http://www.dana-farber.org/", target="_blank")
              )
-          )
+             ),
+             br(),
+             h5("Snowman was developed by", align="center"),
+             fluidRow(
+               column(width=1,p("")),
+               column(width=2, 
+                      div(
+                        img(src="https://avatars1.githubusercontent.com/u/6922120?v=3&s=460", height = 100, width=100, style='border-radius:50px', align='center'),
+                        br(),
+                        a("Jeremiah Wala", href="https://github.com/jwalabroad", target="_blank"),
+                        style = 'float:center; text-align:center'
+                        )
+                      ),
+               column(width=2,
+                      div(
+                        img(src="http://www.nygenome.org/wp-content/uploads/2015/10/Imielinski-headshot.jpeg", height = 100, width=100, style='border-radius:50px', align='center'),
+                        br(),
+                        a("Marcin Imielinski", href="http://www.nygenome.org/lab-groups-overview/imielinski-lab/", target="_blank"),
+                        style = 'float:center; text-align:center'
+                      )
+                  ),
+               column(width=2,
+                      div(
+                        img(src="http://springerlab.tch.harvard.edu/springer/uploads/Alumni/cheng-zhongzhang.jpg", height = 100, width=100, style='border-radius:50px', align='center'),
+                        br(),
+                        a("Cheng-Zhong Zhang", href="http://www.ncbi.nlm.nih.gov/pubmed/?term=Zhang%20CZ%5Bauth%5D", target="_blank"),
+                        style = 'float:center; text-align:center'
+                      )
+               ),
+               column(width=2,
+                      div(
+                        img(src="http://meyersonlab.dana-farber.org/uploads/5/2/2/7/52274861/6071117_orig.jpg", height = 100, width=100, style='border-radius:50px', align='center'),
+                        br(),
+                        a("Matthew Meyerson (PI)", href="http://meyersonlab.dana-farber.org/", target="_blank"),
+                        style = 'float:center; text-align:center'
+                      )
+               ),
+               column(width=2,
+                      div(
+                        img(src="rameen_pic.jpg", height = 100, width=100, style='border-radius:50px', align='center'),
+                        br(),
+                        a("Rameen Beroukhim (PI)", href="http://beroukhimlab.dfci.harvard.edu/Beroukhim_Laboratory.html", target="_blank"),
+                        style = 'float:center; text-align:center'
+                      )
+               ),
+               column(width=1,p(""))
+             ),
+             br(),br(),br(),
+             img(src='schematic_snowman.png',style="display: block; margin-left: auto; margin-right: auto;", width="50%")
+           ) ## fluid Page
   ),
    navbarMenu(title="Documentation",
      tabPanel(title="README", icon = icon(lib="font-awesome", "file-text-o"),
-              uiOutput('markdown')
+              #p("")
+              includeHTML("README.html")
+              ##rmarkdown::render('RECIPES.Rmd') ## THEN HAVE TO REMOVE <DOCTYPE> tag pairs, and everything after README and until first <style type="text/css">
+              ##rmarkdown::render('RECIPES.Rmd')
+              #uiOutput('markdown')
      ),
-     tabPanel(title="Recipes", icon = icon(lib="font-awesome", "cutlery"),
-              uiOutput('recipes')
-              )
-   ),
+  tabPanel(title="RECIPES", icon = icon(lib="font-awesome", "file-text-o"),
+          # p("")
+          includeHTML("RECIPES.html")
+  )
+),
    navbarMenu("NA12878",
    tabPanel(title="Data tables",icon = icon("fa fa-th-list"),
           h3("NA12878 deletions from 1000 Genomes (Mills et al)"),

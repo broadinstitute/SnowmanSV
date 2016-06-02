@@ -439,7 +439,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     ## make GRangesList of true events
     grl.e <- split(e[ix], e$id[ix])
     this_id <- unique(grl.unlist(grl.e)$id)
-
+    
     num_sv = length(unique(e$id[e$span >= 500]))
     
     ## get the overlaps
@@ -452,8 +452,9 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE)
 
     if (!is.na(ro2[1])) {
+      #FPs <- id[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
       FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
-      TPs <- unique(this_id[ro[,2]], this_id[ro2[,2]])
+      TPs <- unique(c(this_id[ro[,2]], this_id[ro2[,2]]))
       FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
     } else { 
       FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), id[ro[,1]]))]
@@ -461,6 +462,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
       FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
     }
     
+    #TPs <- unique(TPs)
     if (type %in% c("indel", "medium")) {
       FPs <- FPs[FPs %in% valid] ## only count FP in our size range
     } else if (type == 'sv') {
@@ -468,12 +470,20 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     } else {
       FPs <- FPs
     }
-    
-    print(paste(c("TP SV", length(TPs), "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))
-    print(paste(c("SV Precision: ", pr <- length(TPs)/(length(TPs) + length(FPs)), "SV Recall:", rc<-length(TPs)/num_sv), collapse=" "))
+    print(paste("NUM SV", num_sv))
+    TPs_500 <- sum(e$id %in% TPs & e$span >= 500)/2
+    print(paste(c("TP SV", TPs_500, "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))
+    print(paste(c("SV Precision: ", pr <- TPs_500/(TPs_500 + length(FPs)), "SV Recall:", rc<-TPs_500/num_sv), collapse=" "))
     
   }
 
+  print(paste(c("--TP SV (>= 500)",  sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2)))
+  print(paste(c("--TP Indel (< 50)", sum(e$id %in% c(TPs,TPi) & e$span < 50)/2)))
+  print(paste(c("--TP Med (50-300)", sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2)))
+  print(paste(c("--FP SV (>= 500)",  sum(FPs >= 500) + sum(FPi$SPAN >= 500))))
+  print(paste(c("--FP Indel (< 50)", sum(FPs < 50) + sum(FPi$SPAN < 50))))
+  print(paste(c("--FP Med (50-300)", sum(FPs > 50 & FPs < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300))))
+        
   tFP <- length(FPs) + length(FPi)
   tTP = length(unique(c(TPi,TPs)))
   print(paste("Total FP:", tFP))
@@ -502,7 +512,6 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   df.sv$type = as.character(df.sv$type)
   df.sv$type <- factor(df.sv$type, levels=c("TP", "FP", "FN"))
 
-  
    ## MAKE THE IC PLOT
    df.ic <- df.sv[df.sv$span==8,]
    df.ic$span <- factor(df.ic$span)

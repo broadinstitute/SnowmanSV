@@ -20,12 +20,37 @@ shinyServer(function(input, output) {
     HTML(markdown::markdownToHTML(knit('RECIPES.Rmd', quiet = TRUE)))
   })
   
-  output$snowman_NA12878_table <- renderDataTable(snow.dels.NA12878, options=list(pageLength = 10))
+  output$snowman_NA12878_table <- renderDataTable(snowman12878$dels, options=list(pageLength = 10))
   output$truth_NA12878_table <- renderDataTable(truth.NA12878$dt, options=list(pageLength = 10))
   output$truth_NA12878_table2 <- renderDataTable(truth2.NA12878$dt, options=list(pageLength = 10))
-  output$pindel_NA12878_table <- renderDataTable(pindel.dels, options=list(pageLength = 10))
+  output$pindel_NA12878_table <- renderDataTable(pindel12878$dels, options=list(pageLength = 10))
   
   output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
+  
+  getDellySimData <- reactive({
+    
+    if (input$sim_select == "DELLY 2X") {
+      ff <- readRDS("data/delly_sim.rds")[[3]]
+    } else if (input$sim_select == "DELLY 5X") {
+      ff <- readRDS("data/delly_sim.rds")[[4]]
+    } else if (input$sim_select == "DELLY 10X") {
+      ff <- readRDS("data/delly_sim.rds")[[2]]
+    }
+    
+    if (input$tum_support_sim == "PASS-ONLY") {
+      talt = 0;
+      nalt = 0;
+    } else {
+      talt = as.numeric(input$tum_support_sim)
+      nalt = 0;
+    }
+
+    mcols(ff)$TALT <- mcols(ff)$TSPLIT + mcols(ff)$TDISC
+    ff <- ff[mcols(ff)$TALT >= talt]
+    
+    return(ff)
+    
+  })
   
   getStrelkaSimData <- reactive({
     
@@ -38,18 +63,18 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
     
     ff$SPAN <- ff$CALC_SPAN
     
-    ff <- ff[ff$NV_t >= talt]
+    ff <- ff[ff$TALT >= talt]
     
-    return(list(sv=GRangesList(), indel=ff))
+    return(ff)
     
   })
   
@@ -65,16 +90,16 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
     
     ff <- ff[ff$NV_t >= talt]
     
-    return(list(sv=GRangesList(), indel=ff))
+    return(ff)
     
   })
   
@@ -90,10 +115,10 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
     
@@ -101,12 +126,13 @@ shinyServer(function(input, output) {
     ff <- ff[mcols(ff)$TUMALT >= talt]
     mcols(ff)$SPAN <- mcols(ff)$span
     
-    print(paste("LEN " , length(ff)))
+    print(paste(c("TALT", talt)))
+    print(paste("LUMPY LEN " , length(ff)))
     #snowi = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
     #print(length(snowi))
     #snow  = GRangesList()
     
-    return(list(sv=ff, indel=GRanges()))
+    return(ff)
     
     
   })
@@ -123,18 +149,18 @@ shinyServer(function(input, output) {
     }
     
     if (input$tum_support_sim == "PASS-ONLY") {
-      talt = 5;
+      talt = 0;
       nalt = 0;
     } else {
-      talt = input$tum_support_sim
+      talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
-    print(paste("LEN " , length(ff)))
-    snowi = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
-    print(length(snowi))
-    snow  = GRangesList()
+
+    print(talt)
+    ff = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
+    print(paste("Filtered PINDEL length",length(ff)))
     
-    return(list(sv=snow, indel=snowi))
+    return(ff)
     
   })
   
@@ -156,10 +182,10 @@ shinyServer(function(input, output) {
       #snow  <- .load_snowman_vcf_datatable("data/160413_2x_sim.snowman.somatic.sv.vcf")
       #snowi <- load_indel("data/160413_2x_sim.snowman.somatic.indel.vcf")
     } 
-    
+   # cix <- evidence != "COMPL"
     if (input$tum_support_sim == "PASS-ONLY") {
       snowi = ff[(confidence == "PASS"| true_lod > LOD) & somatic_score & evidence == "INDEL"]
-      snow  = ff[confidence == "PASS" & somatic_score & evidence != "INDEL"]
+      snow  = ff[confidence == "PASS" & somatic_score & evidence != "INDEL" & evidence != "COMPL"]
     } else {
       snowi = ff[( (T_ALT >= as.integer(input$tum_support_sim) & confidence %in% c("LOWLOD","PASS") & N_ALT < 2)) & evidence == "INDEL"]
       snow <- ff[((T_ALT >= as.integer(input$tum_support_sim) & confidence %in% c("WEAKASSEMBLY", "LOWSUPPORT", "PASS") & N_ALT < 2)) & evidence != "INDEL"]
@@ -187,26 +213,24 @@ shinyServer(function(input, output) {
     if (grepl("Snowman", input$sim_select)) {
       dat <- getSnowmanSimData()
       if (input$sim_plot_evdnc %in% c("ALL-SV","ASSMB","ASDIS","DSCRD","COMPL"))
-        snow.10X <- flag.plot(xsv=dat$sv, e=gr.events)
+        flagp <- flag.plot(xsv=dat$sv, e=gr.events)
       else if (input$sim_plot_evdnc == "INDEL")
-        snow.10X <- flag.plot(xindel=dat$indel, e=gr.events)
+        flagp <- flag.plot(xindel=dat$indel, e=gr.events)
       else
-        snow.10X <- flag.plot(xsv=dat$sv, xindel=dat$indel, e=gr.events)
+        flagp <- flag.plot(xsv=dat$sv, xindel=dat$indel, e=gr.events)
     } else if (grepl("Pindel", input$sim_select)) {
-      dat <- getPindelSimData()
-      print(paste("NROW DAT", length(dat$indel)))
-      snow.10X <- flag.plot(xindel=data$indel, e=gr.events)
+      flagp <- flag.plot(xindel=getPindelSimData(), e=gr.events)
     } else if (grepl("Lumpy", input$sim_select)) {
-      dat <- getLumpySimData()
-      print(paste("NROW LUMPY", length(dat$sv)))
-      snow.10X <- flag.plot(xsv=dat$sv, e=gr.events)
+      flagp <- flag.plot(xsv=getLumpySimData(), e=gr.events)
     } else if (grepl("Platypus", input$sim_select)) {
-      dat <- getPlatypusSimData()
-      print(paste("NROW PLATPUS", length(dat$indel)))
-      snow.10X <- flag.plot(xindel=dat$indel, e=gr.events)
+      flagp <- flag.plot(xindel=getPlatypusSimData(), e=gr.events)
+    } else if (grepl("Strelka", input$sim_select)) {
+      flagp <- flag.plot(xindel=getPlatypusSimData(), e=gr.events)
+    } else if (grepl("DELLY", input$sim_select)) {
+      flagp <- flag.plot(xsv=getDellySimData(), e=gr.events)
     }
     
-    return (snow.10X)
+    return (flagp)
     
   })
   
@@ -220,21 +244,21 @@ shinyServer(function(input, output) {
     dat <- getFlagPlotOutput()
 
     progress$inc(3/4, detail = paste("...rendering plot"))
-    return(dat$g)
+    dat$g
 
   })
   
   output$na12878_set <- renderPlotly({
     
-    df <- data.frame(TP=c(TP_snowman1,
-                          TP_snowman2,
-                          TP_pindel1,
-                          TP_pindel2,
+    df <- data.frame(TP=c(snowman12878$TP1,
+                          snowman12878$TP2,
+                          pindel12878$TP1,
+                          pindel12878$TP2,
                           nrow(truth.NA12878$dt),
                           nrow(truth2.NA12878$dt)),
                      CALLER=c("Snowman","Snowman","Pindel","Pindel","Truth","Truth"),
                      SET=rep(c("Deletion Set 1","Deletion Set 2"),3),
-                     FP=c(FP_snowman1,FP_snowman2, FP_pindel1, FP_pindel2, 0,0))
+                     FP=c(snowman12878$FP1,snowman12878$FP2, pindel12878$FP1, pindel12878$FP2, 0,0))
     
     g <- ggplot(data=melt(df, id.vars=c("SET","CALLER"))) + geom_bar(position='dodge',aes(x=CALLER, fill=variable, y=value), stat='identity') + facet_wrap(~ SET) + 
       ylab("Event count") + xlab("") + scale_fill_manual(name="", values=c("TP"="black","FP"="grey"), labels=c("TP"="Detected deletion","FP"="Unvalidated call")) 
@@ -243,7 +267,7 @@ shinyServer(function(input, output) {
     
   })
   
-  output$sim_type_plot <- renderPlotly({
+  output$sim_type_plot <- renderPlot({
     
     d <- getFlagPlotOutput()
 
@@ -254,8 +278,9 @@ shinyServer(function(input, output) {
       scale_fill_manual(values=c("TRUE"="darkgreen","FALSE" ="grey"), labels=c("TRUE"="TP","FALSE"="FN"), name='') +
       xlab("") + ylab("Event Count") + scale_y_continuous(expand = c(0, 0)) + 
       scale_x_discrete(expand = c(0, 0), labels=c("RARI"="Rearrangement (>= 10 bp ins)", "RAR"="Rearrangement","INT"="Translocation","ins"="insertion < 100bp", "del"="deletion < 100 bp", "DEL"="Deletion > 100 bp", "DUP"="Tandem duplication")) + coord_flip()
-    p <- ggplotly(g)
-    p
+    print(g)
+    #p <- ggplotly(g)
+    #p
     
   })
 

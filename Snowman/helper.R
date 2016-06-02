@@ -62,7 +62,8 @@ Sys.setenv(DEFAULT_BSGENOME = "BSgenome.Hsapiens.UCSC.hg19::Hsapiens")
   ff[, T_COV := as.integer(gsub("0/1:[0-9]+:([0-9]+):.*","\\1", tumor))]
   ff[, DBSNP2 := nchar(DBSNP) > 1]
   ff[, c("normal","tumor", "quality", "DBSNP", "pon_samples","graylist", "secondary_alignment") := NULL]
-  ff2 <- ff[N_ALT <= 3 & T_ALT >= 2 & pmax(mapq1, mapq2) >= 30 & T_COV < 400 & N_COV < 400 & confidence!="NOLOCAL"]
+  ff2 <- ff[N_ALT <= 3 & T_ALT >= 2 & confidence!="NOLOCAL"] # & pmax(mapq1, mapq2) >= 30 & T_COV < 400 & N_COV < 400 & confidence!="NOLOCAL"]
+
   setkey(ff2, chr1, pos1, strand1, chr2, pos2, strand2, N_ALT, T_ALT)
   setkey(ff2, chr1, pos1, strand1, chr2, pos2, strand2)
   ff2 <- unique(ff2)
@@ -121,32 +122,35 @@ truth2.NA12878 <- .load_bedpe2("data/lumpy_na12878_truthset4.bedpe")
 #saveRDS(truth2.NA12878, "data/lumpy_na12878_set2.rds")
 
 ## prepare as GRangesLists
-tmp <- snow.NA12878[snow.NA12878$deltype]
-gr <- with(tmp, GRanges(chr, IRanges(pos, pos), strand=strand, RARID=RARID))
-grl.snow.dels.na12878 <- split(gr, gr$RARID)
-mcols(grl.snow.dels.na12878) <- tmp[!duplicated(RARID),.(SPAN)]
-stopifnot(as.numeric(names(table(elementLengths(grl.snow.dels.na12878))))==2)
-
-## do the overlaps with truth set
-ro_snowman_set1 <- ra.overlaps(grl.snow.dels.na12878,  truth.NA12878$grl, pad=2e3)
-TP_snowman1 <- length(unique(ro_snowman_set1[,'ra1.ix'])) ## TRUE POSITIVE
-ro_snowman_set2 <- ra.overlaps(grl.snow.dels.na12878, truth2.NA12878$grl, pad=2e3)
-TP_snowman2 <- length(unique(ro_snowman_set2[,'ra1.ix'])) ## TRUE POSITIVE
-FP_snowman1 <- sum(ix <- mcols(grl.snow.dels.na12878)$SPAN > 100) - TP_snowman1
-FP_snowman2 <- sum(ix <- mcols(grl.snow.dels.na12878)$SPAN > 100) - TP_snowman2
+# tmp <- snow.NA12878[snow.NA12878$deltype]
+# gr <- with(tmp, GRanges(chr, IRanges(pos, pos), strand=strand, RARID=RARID))
+# grl.snow.dels.na12878 <- split(gr, gr$RARID)
+# mcols(grl.snow.dels.na12878) <- tmp[!duplicated(RARID),.(SPAN)]
+# stopifnot(as.numeric(names(table(elementLengths(grl.snow.dels.na12878))))==2)
+# 
+# ## do the overlaps with truth set
+# ro_snowman_set1 <- ra.overlaps(grl.snow.dels.na12878,  truth.NA12878$grl, pad=2e3)
+# TP_snowman1 <- length(unique(ro_snowman_set1[,'ra1.ix'])) ## TRUE POSITIVE
+# ro_snowman_set2 <- ra.overlaps(grl.snow.dels.na12878, truth2.NA12878$grl, pad=2e3)
+# TP_snowman2 <- length(unique(ro_snowman_set2[,'ra1.ix'])) ## TRUE POSITIVE
+# FP_snowman1 <- sum(ix <- mcols(grl.snow.dels.na12878)$SPAN > 100) - TP_snowman1
+# FP_snowman2 <- sum(ix <- mcols(grl.snow.dels.na12878)$SPAN > 100) - TP_snowman2
+# saveRDS(list(dels=snow.dels.NA12878, dels.grl=grl.snow.dels.na12878, FP1=FP_snowman1, FP2=FP_snowman2, TP1=TP_snowman1, TP2=TP_snowman2, ro1=ro_snowman_set1, ro2=ro_snowman_set2),"data/snowman_NA12878.rds")
+snowman12878 <- readRDS("data/snowman_NA12878.rds")
 
 ### NA12878 Pindel
-ff <- readRDS("data/pindel_NA12878.rds")
-pindel.dels <- ff[SVLEN > 30 & SVTYPE=="DEL"]
-gr <- with(pindel.dels, GRanges(c(V1, V1), IRanges(c(V2, V2), width=1), strand=rep(c("+","-"), each=nrow(pindel.dels)), id=rep(seq(nrow(pindel.dels)),2)))
-grl.pindel <- split(gr, gr$id) 
-ro_pindel_set1 <- ra.overlaps(grl.pindel,  truth.NA12878$grl, pad=2e3)
-TP_pindel1 <- length(unique(ro_pindel_set1[,'ra1.ix'])) ## TRUE POSITIVE
-ro_pindel_set2 <- ra.overlaps(grl.pindel, truth2.NA12878$grl, pad=2e3)
-TP_pindel2 <- length(unique(ro_pindel_set2[,'ra1.ix'])) ## TRUE POSITIVE
-FP_pindel1 <- nrow(pindel.dels[SVLEN > 100]) - TP_pindel1
-FP_pindel2 <- nrow(pindel.dels[SVLEN > 100]) - TP_pindel2
-
+#ff <- readRDS("data/pindel_NA12878.rds")
+#pindel.dels <- ff[SVLEN > 30 & SVTYPE=="DEL"]
+#gr <- with(pindel.dels, GRanges(c(V1, V1), IRanges(c(V2, V2), width=1), strand=rep(c("+","-"), each=nrow(pindel.dels)), id=rep(seq(nrow(pindel.dels)),2)))
+#grl.pindel <- split(gr, gr$id) 
+#ro_pindel_set1 <- ra.overlaps(grl.pindel,  truth.NA12878$grl, pad=2e3)
+#TP_pindel1 <- length(unique(ro_pindel_set1[,'ra1.ix'])) ## TRUE POSITIVE
+#ro_pindel_set2 <- ra.overlaps(grl.pindel, truth2.NA12878$grl, pad=2e3)
+#TP_pindel2 <- length(unique(ro_pindel_set2[,'ra1.ix'])) ## TRUE POSITIVE
+#FP_pindel1 <- nrow(pindel.dels[SVLEN > 100]) - TP_pindel1
+#FP_pindel2 <- nrow(pindel.dels[SVLEN > 100]) - TP_pindel2
+#saveRDS(list(dels=pindel.dels, FP1=FP_pindel1, FP2=FP_pindel2, TP1=TP_pindel1, TP2=TP_pindel2, ro1=ro_pindel_set1, ro2=ro_pindel_set2),"data/pindel_NA12878.rds")
+pindel12878 <- readRDS("data/pindel_NA12878.rds")
 ###########################
 ## SIMLULATED
 ###########################

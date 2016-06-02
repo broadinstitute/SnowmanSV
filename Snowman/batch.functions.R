@@ -108,7 +108,10 @@ load_lumpy <- function(files) {
       return (GRangesList())
     }
     dvcf <-   readVcf(x, "hg19")
-    d <- rowRanges(dvcf)
+    if (exists("rowRanges"))
+      d <- rowRanges(dvcf)
+    else
+      d <- rowData(dvcf)    
     mcols(d) = cbind(mcols(d), info(dvcf))
 
     somatic <- geno(dvcf)[[2]][,2] == 0
@@ -179,7 +182,11 @@ load_indel <- function(files, mc.cores=1) {
       print(paste("File does not exist",x))
       return (GRanges())
     }
-    fff <- rowRanges(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    if (exists('rowRanges'))
+        fff <- rowRanges(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    else
+        fff <- rowData(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    
     if (length(fff) == 0)
       return (GRanges())
 
@@ -200,17 +207,33 @@ load_indel <- function(files, mc.cores=1) {
     tryCatch({mcols(fff)$ALTWIDTH <- unlist(nchar(mcols(fff)$ALT))}, error=function(e) { print ("ERROR in ALTWIDTH") }) #sapply(fff$ALT, nchar)
     mcols(fff)$ALT <- NULL
     
-    if ("AD" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$AD)) < 3) {
+    if ("AD" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$AD)) < 3 && ncol(VariantAnnotation::geno(rv)$AD) ==2) {
       if (is.list(VariantAnnotation::geno(rv)$AD[,2]))
         fff$AD <- sapply(VariantAnnotation::geno(rv)$AD[ix,2], function(x) x[2])
       else
         fff$AD <- VariantAnnotation::geno(rv)$AD[ix,2]
     }
-    if ("DP" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$DP)) < 3 && !"QSI" %in% colnames(VariantAnnotation::info(rv))) {
+
+    if ("AD" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$AD)) < 3 && ncol(VariantAnnotation::geno(rv)$AD) == 1) {
+      if (is.list(VariantAnnotation::geno(rv)$AD[,1]))
+        fff$AD <- sapply(VariantAnnotation::geno(rv)$AD[ix,2], function(x) x[2])
+      else
+        fff$AD <- VariantAnnotation::geno(rv)$AD[ix,1]
+    }
+
+    
+    if ("DP" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$DP)) < 3 && !"QSI" %in% colnames(VariantAnnotation::info(rv)) && ncol(VariantAnnotation::geno(rv)$DP) == 2) {
       if (is.list(VariantAnnotation::geno(rv)$DP[,2]))
         fff$DP <- sapply(VariantAnnotation::geno(rv)$DP[ix,2], function(x) x[2])
       else
         fff$DP <- VariantAnnotation::geno(rv)$DP[ix,2]
+    }
+    
+    if ("DP" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$DP)) < 3 && !"QSI" %in% colnames(VariantAnnotation::info(rv)) && ncol(VariantAnnotation::geno(rv)$DP) == 1) {
+      if (is.list(VariantAnnotation::geno(rv)$DP[,1]))
+        fff$DP <- sapply(VariantAnnotation::geno(rv)$DP[ix,1], function(x) x[2])
+      else
+        fff$DP <- VariantAnnotation::geno(rv)$DP[ix,1]
     }
 
     ## platypus read counts
@@ -226,6 +249,16 @@ load_indel <- function(files, mc.cores=1) {
       #  fff$DP <- VariantAnnotation::geno(rv)$DP[ix,2]
     }
 
+    ## strelka read counts
+    print(names(VariantAnnotation::geno(rv)))
+    if ("TIR" %in% names(VariantAnnotation::geno(rv))) {
+      tt <- VariantAnnotation::geno(rv)$TIR[,"TUMOR",1]
+      nn <- VariantAnnotation::geno(rv)$TIR[,"NORMAL",1]
+      fff$TALT <- tt[ix]
+      fff$NALT <- nn[ix]
+    }
+
+    
     if (sum(c("DP","AD") %in% colnames(mcols(fff)))==2) 
       fff$AF <- ifelse(fff$DP > 0, fff$AD/fff$DP, NA)
 
@@ -249,21 +282,29 @@ load_delly <- function(files) {
       return (GRangesList())
     }
     dvcf <- readVcf(x, "hg19")
-    d <- rowRanges(dvcf)
+
+    if (exists("rowRanges"))
+      d <- rowRanges(dvcf)
+    else
+      d <- rowData(dvcf)
+      
     if (length(d) == 0)
       return (GRangesList())
     f = d$FILTER
 
     mcols(d) = info(dvcf)
     delly <- GRanges(c(as.character(seqnames(d)), as.character(d$CHR2)), IRanges(c(start(d), d$END), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
-                     SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2))
+                     SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2), TDISC=rep(geno(dvcf)$DV[,1],2),
+                     NDISC=rep(geno(dvcf)$DV[,2],2),
+                     TSPLIT=rep(geno(dvcf)$RV[,1],2), NSPLIT=rep(geno(dvcf)$RV[,2],2))
     #delly <- GRanges(c(as.character(seqnames(d)), as.character(d$MATECHROM)), IRanges(c(start(d), d$MATEPOS), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
     #                 SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2))
     
     delly <- delly[delly$filter == "PASS"]
 
     dt <- data.table(id=delly$id, start=as.numeric(start(delly)), end=as.numeric(end(delly)), chr=as.character(seqnames(delly)),
-                     SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT))
+                     SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT), TDISC=as.numeric(delly$TDISC), NDISC=as.numeric(delly$NDISC),
+                     TSPLIT=as.numeric(delly$TSPLIT), NSPLIT=as.numeric(delly$NSPLIT))
     dt[, span := ifelse(chr[1] != chr[2], 1e9, abs(start[1] - end[2])), by=id]
     setkey(dt, id)
     dt <- unique(dt)
@@ -273,6 +314,10 @@ load_delly <- function(files) {
     mcols(del)$SPAN <- dt[mcols(del)$id]$span
     mcols(del)$SVTYPE <- dt[mcols(del)$id]$SVTYPE
     mcols(del)$CT <- dt[mcols(del)$id]$CT
+    mcols(del)$TDISC <- dt[mcols(del)$id]$TDISC
+    mcols(del)$NDISC <- dt[mcols(del)$id]$NDISC
+    mcols(del)$TSPLIT <- dt[mcols(del)$id]$TSPLIT
+    mcols(del)$NSPLIT <- dt[mcols(del)$id]$NSPLIT
 
     gg <- grl.unlist(del)
     ix <- mcols(gg)$CT == "3to5"

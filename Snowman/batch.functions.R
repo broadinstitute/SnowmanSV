@@ -114,8 +114,10 @@ load_lumpy <- function(files) {
       d <- rowData(dvcf)    
     mcols(d) = cbind(mcols(d), info(dvcf))
 
-    somatic <- geno(dvcf)[[2]][,2] == 0
-    d <- d[somatic]
+    if (ncol(geno(dvcf)[[2]])==2) {
+      somatic <- geno(dvcf)[[2]][,2] == 0
+      d <- d[somatic]
+    }
     if (length(d) == 0)
       return (GRangesList())
     bnd = d$SVTYPE=="BND"
@@ -173,6 +175,37 @@ load_snowman <- function(files, mc.cores=mc.cores, unlist=FALSE, bad.remove=TRUE
   return (snow4)
 }
 
+load_indel_dt <- function(x) {
+
+  if (!file.exists(x))
+    return(data.table())
+  if (as.numeric(system(paste("grep -v '^#'", x, "| wc -l"), intern=TRUE)) == 0)
+  return (data.table())
+
+  suppressWarnings(ff <- fread(paste("grep -v '^#'", x),sep='\t'))
+
+  if (!nrow(ff) || nrow(ff) > 20000)
+    return(data.table())
+
+  ff$start = ff$end = ff$V2
+  setnames(ff, c("V1","V5","V10","V11","V4"), c("seqnames","ALT","normal","tumor","REF"))
+  ff$sample = gsub("(.*?)_.*","\\1",basename(x))
+  ff[, SPAN := as.numeric(gsub(".*?SPAN=([-0-9]+).*","\\1",V8))]
+  ff[, INFO := gsub("READNAMES=(.*?);","",V8)]
+  ff[, ID := paste(sample, V3,sep="_")]
+  ff[, c("V8","V6","V9","V7","V2","V3") := NULL]
+  ff[, del := nchar(REF) > nchar(ALT)]
+  ff[, ins := nchar(ALT) > nchar(REF)]  
+  ff[, SCTG := gsub(".*?SCTG=(.*?);.*","\\1",INFO)]
+  ff[, REPSEQ := gsub(".*?REPSEQ=(.*?);.*","\\1",INFO)]
+  ff[, DBSNP := grepl("DBSNP",INFO)]
+  ff[, LOD := as.numeric(gsub(".*?LOD=(.*?);.*","\\1",INFO))]
+  ff[, MAPQ := as.integer(gsub(".*?MAPQ=(.*?);.*","\\1",INFO))]
+  ff[, NM := as.integer(gsub(".*?NM=(.*?);.*","\\1",INFO))]
+  ff[, INFO := NULL]
+  return(ff)
+}
+
 load_indel <- function(files, mc.cores=1) {
 
   snow4 <- parallel::mclapply(files, function(x) {
@@ -187,6 +220,7 @@ load_indel <- function(files, mc.cores=1) {
     else
         fff <- rowData(rv <- VariantAnnotation::readVcf(x, "hg19"))
     
+
     if (length(fff) == 0)
       return (GRanges())
 
@@ -368,7 +402,7 @@ indel_overlaps <- function(x, prefix="") {
   paste(c(prefix,"Num FN:", length(i_fn), prefix,"Num FP:", length(i_fp), prefix,"Num TP:", length(unique(fo$query.id))))
 }
 
-flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all") {
+flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all", pad=10) {
 
   df <- data.frame()
   FPi <- FPs <- c()
@@ -393,7 +427,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     valid = seq(50,200)
   }
   
-  print(paste('num events considered', num_events))
+  print(paste('Num truth-set events considered', num_events))
   if (!is.null(xindel)) {
 
     num_indel <- length(unique(e$id[e$span < 50 & e$span > 0]))
@@ -424,8 +458,8 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     }
     
     if (file.exists("/dev/shm/fpi.rds")) {
-    saveRDS(FPi,"/dev/shm/fpi.rds")
-    saveRDS(FNi,"/dev/shm/fni.rds")
+      saveRDS(FPi,"/dev/shm/fpi.rds")
+      saveRDS(FNi,"/dev/shm/fni.rds")
     }
     
     print(paste(c("TP Indel (<50bp)", length(TPi), "FP Indel", length(FPi))))
@@ -443,13 +477,13 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     num_sv = length(unique(e$id[e$span >= 500]))
     
     ## get the overlaps
-    ro <- ra.overlaps(xsv, grl.e, pad=10, ignore.strand=TRUE)
+    suppressWarnings(ro <- ra.overlaps(xsv, grl.e, pad=pad, ignore.strand=TRUE))
 
     ## get the overlaps for larger events, with larger buffer
     id <- seq_along(xsv)
     ixr <- mcols(xsv)$SPAN >= 500 |  mcols(xsv)$SPAN == -1
     id2 <- id[ixr]
-    ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE)
+    suppressWarnings(ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE))
 
     if (!is.na(ro2[1])) {
       #FPs <- id[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
@@ -470,6 +504,9 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     } else {
       FPs <- FPs
     }
+
+    print(FPs)
+    print(rr)
     print(paste("NUM SV", num_sv))
     TPs_500 <- sum(e$id %in% TPs & e$span >= 500)/2
     print(paste(c("TP SV", TPs_500, "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))

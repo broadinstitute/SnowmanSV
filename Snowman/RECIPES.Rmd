@@ -62,7 +62,21 @@ snowman run -t $TUM_BAM -n $NORM_BAM -p $CORES -r all -G $REF -a somatic_all_rea
 snowman run -t $TUM_BAM -n $NORM_BAM -e 0.015 -a somatic_run_e15 -p $CORES -D $DBSNP -G $REF
 ```
 
+#### Get a real-time snapshot of where Snowman is while running
+```{r, eval=FALSE}
+tail somatic_run.log
+```
+
 ## Analyzing output
+
+#### Debug a local assembly and produce the assembly graph
+```{r, eval=FALSE}
+k=chr17:7,541,145-7,621,399
+snowman run -t $BAM -a local_test -k $k --write-asqg
+
+## plot the graph
+$GIT/SnowmanSV/R/snow-asqg.R
+```
 
 #### View the filtered results
 ```{r, eval=FALSE}
@@ -80,7 +94,13 @@ function ev {
 ev somatic_run.alignments.txt.gz 
 ```
 
-#### Make a function to sort and index the contigs.bam file (prior to IGV viewing)
+#### View a particular contig with read-to-contig alignments
+```{r, eval=FALSE}
+gunzip -c somatic_run.alignments.txt.gz | grep c_1_123456789_123476789 > c_1_123456789_123476789.alignments.txt
+ev c_1_123456789_123476789.alignments.txt
+```
+
+#### Make a function to sort and index the contigs.bam file (to enable IGV viewing)
 ```{r, eval=FALSE}
 function sai() {
   if [[ -f $1.contigs.bam ]]; then

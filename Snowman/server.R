@@ -12,6 +12,8 @@ source("helper.R")
 
 shinyServer(function(input, output) {
 
+  output$dummmy <- renderPlot({plot(1:10)})
+    
   output$markdown <- renderUI({
     HTML(markdown::markdownToHTML(knit('README.Rmd', quiet = TRUE)))
   })

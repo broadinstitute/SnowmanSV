@@ -108,11 +108,16 @@ load_lumpy <- function(files) {
       return (GRangesList())
     }
     dvcf <-   readVcf(x, "hg19")
-    d <- rowRanges(dvcf)
+    if (exists("rowRanges"))
+      d <- rowRanges(dvcf)
+    else
+      d <- rowData(dvcf)    
     mcols(d) = cbind(mcols(d), info(dvcf))
 
-    somatic <- geno(dvcf)[[2]][,2] == 0
-    d <- d[somatic]
+    if (ncol(geno(dvcf)[[2]])==2) {
+      somatic <- geno(dvcf)[[2]][,2] == 0
+      d <- d[somatic]
+    }
     if (length(d) == 0)
       return (GRangesList())
     bnd = d$SVTYPE=="BND"
@@ -170,6 +175,37 @@ load_snowman <- function(files, mc.cores=mc.cores, unlist=FALSE, bad.remove=TRUE
   return (snow4)
 }
 
+load_indel_dt <- function(x) {
+
+  if (!file.exists(x))
+    return(data.table())
+  if (as.numeric(system(paste("grep -v '^#'", x, "| wc -l"), intern=TRUE)) == 0)
+  return (data.table())
+
+  suppressWarnings(ff <- fread(paste("grep -v '^#'", x),sep='\t'))
+
+  if (!nrow(ff) || nrow(ff) > 20000)
+    return(data.table())
+
+  ff$start = ff$end = ff$V2
+  setnames(ff, c("V1","V5","V10","V11","V4"), c("seqnames","ALT","normal","tumor","REF"))
+  ff$sample = gsub("(.*?)_.*","\\1",basename(x))
+  ff[, SPAN := as.numeric(gsub(".*?SPAN=([-0-9]+).*","\\1",V8))]
+  ff[, INFO := gsub("READNAMES=(.*?);","",V8)]
+  ff[, ID := paste(sample, V3,sep="_")]
+  ff[, c("V8","V6","V9","V7","V2","V3") := NULL]
+  ff[, del := nchar(REF) > nchar(ALT)]
+  ff[, ins := nchar(ALT) > nchar(REF)]  
+  ff[, SCTG := gsub(".*?SCTG=(.*?);.*","\\1",INFO)]
+  ff[, REPSEQ := gsub(".*?REPSEQ=(.*?);.*","\\1",INFO)]
+  ff[, DBSNP := grepl("DBSNP",INFO)]
+  ff[, LOD := as.numeric(gsub(".*?LOD=(.*?);.*","\\1",INFO))]
+  ff[, MAPQ := as.integer(gsub(".*?MAPQ=(.*?);.*","\\1",INFO))]
+  ff[, NM := as.integer(gsub(".*?NM=(.*?);.*","\\1",INFO))]
+  ff[, INFO := NULL]
+  return(ff)
+}
+
 load_indel <- function(files, mc.cores=1) {
 
   snow4 <- parallel::mclapply(files, function(x) {
@@ -179,7 +215,12 @@ load_indel <- function(files, mc.cores=1) {
       print(paste("File does not exist",x))
       return (GRanges())
     }
-    fff <- rowRanges(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    if (exists('rowRanges'))
+        fff <- rowRanges(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    else
+        fff <- rowData(rv <- VariantAnnotation::readVcf(x, "hg19"))
+    
+
     if (length(fff) == 0)
       return (GRanges())
 
@@ -200,17 +241,33 @@ load_indel <- function(files, mc.cores=1) {
     tryCatch({mcols(fff)$ALTWIDTH <- unlist(nchar(mcols(fff)$ALT))}, error=function(e) { print ("ERROR in ALTWIDTH") }) #sapply(fff$ALT, nchar)
     mcols(fff)$ALT <- NULL
     
-    if ("AD" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$AD)) < 3) {
+    if ("AD" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$AD)) < 3 && ncol(VariantAnnotation::geno(rv)$AD) ==2) {
       if (is.list(VariantAnnotation::geno(rv)$AD[,2]))
         fff$AD <- sapply(VariantAnnotation::geno(rv)$AD[ix,2], function(x) x[2])
       else
         fff$AD <- VariantAnnotation::geno(rv)$AD[ix,2]
     }
-    if ("DP" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$DP)) < 3 && !"QSI" %in% colnames(VariantAnnotation::info(rv))) {
+
+    if ("AD" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$AD)) < 3 && ncol(VariantAnnotation::geno(rv)$AD) == 1) {
+      if (is.list(VariantAnnotation::geno(rv)$AD[,1]))
+        fff$AD <- sapply(VariantAnnotation::geno(rv)$AD[ix,2], function(x) x[2])
+      else
+        fff$AD <- VariantAnnotation::geno(rv)$AD[ix,1]
+    }
+
+    
+    if ("DP" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$DP)) < 3 && !"QSI" %in% colnames(VariantAnnotation::info(rv)) && ncol(VariantAnnotation::geno(rv)$DP) == 2) {
       if (is.list(VariantAnnotation::geno(rv)$DP[,2]))
         fff$DP <- sapply(VariantAnnotation::geno(rv)$DP[ix,2], function(x) x[2])
       else
         fff$DP <- VariantAnnotation::geno(rv)$DP[ix,2]
+    }
+    
+    if ("DP" %in% names(VariantAnnotation::geno(rv)) && length(dim(VariantAnnotation::geno(rv)$DP)) < 3 && !"QSI" %in% colnames(VariantAnnotation::info(rv)) && ncol(VariantAnnotation::geno(rv)$DP) == 1) {
+      if (is.list(VariantAnnotation::geno(rv)$DP[,1]))
+        fff$DP <- sapply(VariantAnnotation::geno(rv)$DP[ix,1], function(x) x[2])
+      else
+        fff$DP <- VariantAnnotation::geno(rv)$DP[ix,1]
     }
 
     ## platypus read counts
@@ -226,6 +283,16 @@ load_indel <- function(files, mc.cores=1) {
       #  fff$DP <- VariantAnnotation::geno(rv)$DP[ix,2]
     }
 
+    ## strelka read counts
+    print(names(VariantAnnotation::geno(rv)))
+    if ("TIR" %in% names(VariantAnnotation::geno(rv))) {
+      tt <- VariantAnnotation::geno(rv)$TIR[,"TUMOR",1]
+      nn <- VariantAnnotation::geno(rv)$TIR[,"NORMAL",1]
+      fff$TALT <- tt[ix]
+      fff$NALT <- nn[ix]
+    }
+
+    
     if (sum(c("DP","AD") %in% colnames(mcols(fff)))==2) 
       fff$AF <- ifelse(fff$DP > 0, fff$AD/fff$DP, NA)
 
@@ -249,21 +316,29 @@ load_delly <- function(files) {
       return (GRangesList())
     }
     dvcf <- readVcf(x, "hg19")
-    d <- rowRanges(dvcf)
+
+    if (exists("rowRanges"))
+      d <- rowRanges(dvcf)
+    else
+      d <- rowData(dvcf)
+      
     if (length(d) == 0)
       return (GRangesList())
     f = d$FILTER
 
     mcols(d) = info(dvcf)
     delly <- GRanges(c(as.character(seqnames(d)), as.character(d$CHR2)), IRanges(c(start(d), d$END), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
-                     SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2))
+                     SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2), TDISC=rep(geno(dvcf)$DV[,1],2),
+                     NDISC=rep(geno(dvcf)$DV[,2],2),
+                     TSPLIT=rep(geno(dvcf)$RV[,1],2), NSPLIT=rep(geno(dvcf)$RV[,2],2))
     #delly <- GRanges(c(as.character(seqnames(d)), as.character(d$MATECHROM)), IRanges(c(start(d), d$MATEPOS), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
     #                 SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2))
     
     delly <- delly[delly$filter == "PASS"]
 
     dt <- data.table(id=delly$id, start=as.numeric(start(delly)), end=as.numeric(end(delly)), chr=as.character(seqnames(delly)),
-                     SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT))
+                     SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT), TDISC=as.numeric(delly$TDISC), NDISC=as.numeric(delly$NDISC),
+                     TSPLIT=as.numeric(delly$TSPLIT), NSPLIT=as.numeric(delly$NSPLIT))
     dt[, span := ifelse(chr[1] != chr[2], 1e9, abs(start[1] - end[2])), by=id]
     setkey(dt, id)
     dt <- unique(dt)
@@ -273,6 +348,10 @@ load_delly <- function(files) {
     mcols(del)$SPAN <- dt[mcols(del)$id]$span
     mcols(del)$SVTYPE <- dt[mcols(del)$id]$SVTYPE
     mcols(del)$CT <- dt[mcols(del)$id]$CT
+    mcols(del)$TDISC <- dt[mcols(del)$id]$TDISC
+    mcols(del)$NDISC <- dt[mcols(del)$id]$NDISC
+    mcols(del)$TSPLIT <- dt[mcols(del)$id]$TSPLIT
+    mcols(del)$NSPLIT <- dt[mcols(del)$id]$NSPLIT
 
     gg <- grl.unlist(del)
     ix <- mcols(gg)$CT == "3to5"
@@ -323,7 +402,7 @@ indel_overlaps <- function(x, prefix="") {
   paste(c(prefix,"Num FN:", length(i_fn), prefix,"Num FP:", length(i_fp), prefix,"Num TP:", length(unique(fo$query.id))))
 }
 
-flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all") {
+flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all", pad=10) {
 
   df <- data.frame()
   FPi <- FPs <- c()
@@ -348,7 +427,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     valid = seq(50,200)
   }
   
-  print(paste('num events considered', num_events))
+  print(paste('Num truth-set events considered', num_events))
   if (!is.null(xindel)) {
 
     num_indel <- length(unique(e$id[e$span < 50 & e$span > 0]))
@@ -379,8 +458,8 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     }
     
     if (file.exists("/dev/shm/fpi.rds")) {
-    saveRDS(FPi,"/dev/shm/fpi.rds")
-    saveRDS(FNi,"/dev/shm/fni.rds")
+      saveRDS(FPi,"/dev/shm/fpi.rds")
+      saveRDS(FNi,"/dev/shm/fni.rds")
     }
     
     print(paste(c("TP Indel (<50bp)", length(TPi), "FP Indel", length(FPi))))
@@ -398,13 +477,13 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     num_sv = length(unique(e$id[e$span >= 500]))
     
     ## get the overlaps
-    ro <- ra.overlaps(xsv, grl.e, pad=10, ignore.strand=TRUE)
+    suppressWarnings(ro <- ra.overlaps(xsv, grl.e, pad=pad, ignore.strand=TRUE))
 
     ## get the overlaps for larger events, with larger buffer
     id <- seq_along(xsv)
     ixr <- mcols(xsv)$SPAN >= 500 |  mcols(xsv)$SPAN == -1
     id2 <- id[ixr]
-    ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE)
+    suppressWarnings(ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE))
 
     if (!is.na(ro2[1])) {
       #FPs <- id[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
@@ -425,6 +504,9 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     } else {
       FPs <- FPs
     }
+
+    print(FPs)
+    print(rr)
     print(paste("NUM SV", num_sv))
     TPs_500 <- sum(e$id %in% TPs & e$span >= 500)/2
     print(paste(c("TP SV", TPs_500, "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))

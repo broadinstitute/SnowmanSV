@@ -120,18 +120,22 @@ load_lumpy <- function(files) {
     }
     if (length(d) == 0)
       return (GRangesList())
+    ALT = unlist(d$ALT)
     bnd = d$SVTYPE=="BND"
-    lbe <- GRanges(seqnames(d[bnd]), IRanges(start(d[bnd]), width=1), id = gsub("([0-9]+)_[0-9]", '\\1', unlist(d$MATEID)), PE=unlist(d$PE)[bnd], IMPRECISE=d$IMPRECISE[bnd], SECONDARY=d$SECONDARY[bnd], SR=unlist(d$SR[bnd]))
-    lnb <- GRanges(rep(seqnames(d[!bnd]), 2), IRanges(c(start(d[!bnd]), mcols(d[!bnd])$END),width=1), id=paste0("A",rep(seq(sum(!bnd)), 2)), PE=unlist(d$PE)[!bnd], IMPRECISE=d$IMPRECISE[!bnd], SECONDARY=d$SECONDARY[!bnd], SR=unlist(d$SR[!bnd]))
+    lbe <- GRanges(seqnames(d[bnd]), IRanges(start(d[bnd]), width=1), id = gsub("([0-9]+)_[0-9]", '\\1', unlist(d$MATEID)), PE=unlist(d$PE)[bnd], IMPRECISE=d$IMPRECISE[bnd], SECONDARY=d$SECONDARY[bnd], SR=unlist(d$SR[bnd]), strand=ifelse(grepl("^\\[", ALT[bnd]) | grepl("^\\]", ALT[bnd]), '-', '+'))
+    lnb <- GRanges(rep(seqnames(d[!bnd]), 2), IRanges(c(start(d[!bnd]), mcols(d[!bnd])$END),width=1), id=paste0("A",rep(seq(sum(!bnd)), 2)), PE=unlist(d$PE)[!bnd], IMPRECISE=d$IMPRECISE[!bnd], SECONDARY=d$SECONDARY[!bnd], SR=unlist(d$SR[!bnd]), strand=c(ifelse(ALT[!bnd]=="<DUP>", '-','+'),ifelse(ALT[!bnd]=="<DUP>", '+','-')))
     
     l <- c(lbe, lnb)
-    dt <- data.table(id=l$id, start=start(l), end=end(l), chr=as.character(seqnames(l)), PE=l$PE, IMPRECISE=l$IMPRECISE, SECONDARY=l$SECONDARY, SR=l$SR)
-    dt[, span := ifelse(chr[1] != chr[2], as.integer(1e9), abs(start[1] - end[2])), by=id]
+    dt <- data.table(id=l$id, start=start(l), end=end(l), chr=as.character(seqnames(l)), PE=l$PE, IMPRECISE=l$IMPRECISE, SECONDARY=l$SECONDARY, SR=l$SR, strand=as.character(strand(l)))
+    dt[, SPAN := ifelse(chr[1] != chr[2], as.integer(1e9), abs(start[1] - end[2])), by=id]
     setkey(dt, id)
+    dt[, altchr := rev(chr), by=id]
+    dt[, altpos := rev(start), by=id]
+    dt[, altstarnd := rev(strand), by=id]
     dt <- unique(dt)
     
     l <- split(l, l$id)
-    mcols(l) <- dt[,.(id, PE, IMPRECISE, SECONDARY, SR, span)]
+    mcols(l) <- dt[,.(id, PE, IMPRECISE, SECONDARY, SR, SPAN)]
 #    mcols(l)$id <- unique(grl.unlist(l)$id)
 #    mcols(l)$SPAN = dt[mcols(l)$id]$span
     return (l)
@@ -152,25 +156,85 @@ load_snowman <- function(files, mc.cores=mc.cores, unlist=FALSE, bad.remove=TRUE
       else
         return (GRangesList())
     }
-    print(paste(basename(x), "is", match(x, files), "of", length(files)))
-    aa <- skitools::ra_breaks(x)
-    if (length(aa) == 0) {
-      if (unlist)
-        return (GRanges())
-      else
-        return (GRangesList())
+    
+    #print(paste(basename(x), "is", match(x, files), "of", length(files)))
+    #aa <- skitools::ra_breaks(x)
+    #aa2 <- gr.flipstrand(grl.unlist(aa))
+    #dd <- mcols(aa)
+    #grlix <- aa2$grl.ix
+    #mcols(aa2) <- NULL
+    #aa <- split(aa2, grlix)
+    #mcols(aa) <- dd
+
+    ff <- fread(paste("grep -v '^#'", x),sep='\t')
+    if (ncol(ff)==10)
+      setnames(ff, paste0("V",seq(1:10)), c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","GENO","NORMAL"))
+    else if (ncols(ff) == 11)
+      setnames(ff, paste0("V",seq(1:11)), c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","GENO","NORMAL","TUMOR"))
+    ff[, SPAN := as.numeric(gsub(".*?SPAN=([-0-9]+).*","\\1",INFO))]
+    ff$sample = gsub("(.*?)_.*","\\1",basename(x))
+    ff[, uid := gsub("([0-9]+):(1|2)", "\\1", ID)]
+    ff[, EVDNC := gsub(".*?EVDNC=([A-Z]+).*", "\\1", INFO)]
+    ff[, NUMPARTS := as.integer(gsub(".*?NUMPARTS=([0-9]+).*", "\\1", INFO))]
+    ff[, SCTG := gsub(".*?SCTG=(.*?);.*", "\\1", INFO)]
+    ff[, DISC_MAPQ := as.numeric(gsub(".*?DISC_MAPQ=([0-9]+).*", "\\1", INFO))]
+    ff[, NM := as.integer(gsub(".*?;NM=([0-9]+).*", "\\1", INFO))]
+    ff[, MATENM := as.integer(gsub(".*?;MATENM=([0-9]+).*", "\\1", INFO))]
+    ff[, MAPQ := as.integer(gsub(".*?;MAPQ=([0-9]+).*", "\\1", INFO))]
+    print("...still formatting")
+    ff[, REPSEQ := gsub(".*?;REPSEQ=([A-Z]+).*", "\\1", INFO)]
+    ff[, REPSEQ := ifelse(grepl(";", REPSEQ), "", REPSEQ)] 
+    ff[, HOMSEQ := gsub(".*?;HOMSEQ=([A-Z]+).*", "\\1", INFO)] ##{ xx <- gsub(".*?;HOMSEQ=([A-Z]+).*", "\\1", INFO); if (!grepl(";",xx)) { xx } else { "" }}]
+    ff[, HOMSEQ := ifelse(grepl(";", HOMSEQ), "", HOMSEQ)] 
+    ff[, INSERTION := gsub(".*?;INSERTION=([A-Z]+).*", "\\1", INFO)] ##{ xx <- gsub(".*?;HOMSEQ=([A-Z]+).*", "\\1", INFO); if (!grepl(";",xx)) { xx } else { "" }}]
+    ff[, INSERTION := ifelse(grepl(";", INSERTION), "", INSERTION)]
+    if ("TUMOR" %in% colnames(ff)) {
+      ff[, TUMALT :=  as.integer(strsplit(TUMOR, ":")[[1]][2]) , by=uid]
+      ff[, TUMCOV :=  as.integer(strsplit(TUMOR, ":")[[1]][3]) , by=uid]
+      ff[, TUMLOD :=  as.numeric(strsplit(TUMOR, ":")[[1]][9]) , by=uid]
     }
-    bad.ix <- unique(grl.unlist(aa)[grepl("^G", as.character(seqnames(grl.unlist(aa))))]$grl.ix)
-    #tab <- table(grl.unlist(aa)$grl.ix[grepl("ref", as.character(seqnames(grl.unlist(aa))))])
-    #bad.ix <- unique(c(bad.ix, as.numeric(names(tab[tab == 2]))))
-    if (length(bad.ix)) 
-      aa <- aa[-bad.ix]
-    if (length(aa))
-      mcols(aa)$filename = basename(x);
-    if (unlist)
-      return (grl.unlist(aa))
-    else
-      return (aa)
+    if ("NORMAL" %in% colnames(ff)) {
+      ff[, NORMCOV :=  as.integer(strsplit(NORMAL, ":")[[1]][3]) , by=uid]
+      ff[, NORMALT :=  as.integer(strsplit(NORMAL, ":")[[1]][2]) , by=uid]
+      ff[, NORMLOD :=  as.numeric(strsplit(NORMAL, ":")[[1]][9]) , by=uid]
+    }
+    ff[, strand := ifelse(grepl("^\\[", ALT) | grepl("^\\]", ALT), '-', '+')]
+    ff[, inv := strand[1] == strand[2], by=uid]
+    ff[, altstrand := rev(strand), by=uid]
+    ff[, altpos := as.integer(gsub(".*?:([0-9]+).*", "\\1", ALT))]
+    ff[, altchr := gsub(".*?(\\[|\\])(.*?):([0-9]+).*", "\\2", ALT)]
+    ff[, end := start]
+
+    ff[, c("ID","REF","ALT","QUAL", "INFO", "GENO") := NULL]
+    
+    bad.ix <- ff[grepl("^G|^M", seqnames), uid]
+    ff <- ff[!uid %in% bad.ix]
+    
+    ## if (length(aa) == 0) {
+    ##   if (unlist)
+    ##     return (GRanges())
+    ##   else
+    ##     return (GRangesList())
+    ## }
+    ## bad.ix <- unique(grl.unlist(aa)[grepl("^G", as.character(seqnames(grl.unlist(aa))))]$grl.ix)
+    ## #tab <- table(grl.unlist(aa)$grl.ix[grepl("ref", as.character(seqnames(grl.unlist(aa))))])
+    ## #bad.ix <- unique(c(bad.ix, as.numeric(names(tab[tab == 2]))))
+    ## if (length(bad.ix)) 
+    ##   aa <- aa[-bad.ix]
+    ## if (length(aa))
+    ##   mcols(aa)$filename = basename(x);
+    ## if (unlist)
+    ##   return (grl.unlist(aa))
+    ## else
+    ##   return (aa)
+
+    df <- as.data.frame(dt2gr(ff))[,setdiff(colnames(ff), c("seqnames","start","end","strand"))]
+    df <- df[!duplicated(df$uid),]
+    g <- dt2gr(ff[,.(seqnames, start, end, strand, uid)])
+    g <- split(g, g$uid)
+    stopifnot(all(elementLengths(g) == 2))
+    mcols(g) <- df[match(names(g), df$uid),]
+    return(g)
   })
   return (snow4)
 }
@@ -327,18 +391,34 @@ load_delly <- function(files) {
     f = d$FILTER
 
     mcols(d) = info(dvcf)
-    delly <- GRanges(c(as.character(seqnames(d)), as.character(d$CHR2)), IRanges(c(start(d), d$END), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
-                     SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2), TDISC=rep(geno(dvcf)$DV[,1],2),
-                     NDISC=rep(geno(dvcf)$DV[,2],2),
-                     TSPLIT=rep(geno(dvcf)$RV[,1],2), NSPLIT=rep(geno(dvcf)$RV[,2],2))
+
+    if (ncol(geno(dvcf)$DV)==2) {
+      delly <- GRanges(c(as.character(seqnames(d)), as.character(d$CHR2)), IRanges(c(start(d), d$END), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
+                       SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2), TDISC=rep(geno(dvcf)$DV[,1],2),
+                       NDISC=rep(geno(dvcf)$DV[,2],2),
+                       TSPLIT=rep(geno(dvcf)$RV[,1],2), NSPLIT=rep(geno(dvcf)$RV[,2],2))
+    } else {
+      delly <- GRanges(c(as.character(seqnames(d)), as.character(d$CHR2)), IRanges(c(start(d), d$END), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
+                       SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2), DISC=rep(geno(dvcf)$DV[,1],2),
+                       SPLIT=rep(geno(dvcf)$RV[,1],2))
+    }
+    
     #delly <- GRanges(c(as.character(seqnames(d)), as.character(d$MATECHROM)), IRanges(c(start(d), d$MATEPOS), width=1), id=paste0("A",rep(seq_along(d), 2)), filter=rep(f,2),
     #                 SVTYPE=rep(mcols(d)$SVTYPE, 2), CT=rep(mcols(d)$CT, 2))
     
     delly <- delly[delly$filter == "PASS"]
 
-    dt <- data.table(id=delly$id, start=as.numeric(start(delly)), end=as.numeric(end(delly)), chr=as.character(seqnames(delly)),
-                     SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT), TDISC=as.numeric(delly$TDISC), NDISC=as.numeric(delly$NDISC),
-                     TSPLIT=as.numeric(delly$TSPLIT), NSPLIT=as.numeric(delly$NSPLIT))
+    if (ncol(geno(dvcf)$DV)==2) {
+      dt <- data.table(id=delly$id, start=as.numeric(start(delly)), end=as.numeric(end(delly)), chr=as.character(seqnames(delly)),
+                       SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT), TDISC=as.numeric(delly$TDISC), NDISC=as.numeric(delly$NDISC),
+                       TSPLIT=as.numeric(delly$TSPLIT), NSPLIT=as.numeric(delly$NSPLIT))
+    } else {
+      dt <- data.table(id=delly$id, start=as.numeric(start(delly)), end=as.numeric(end(delly)), chr=as.character(seqnames(delly)),
+                       SVTYPE=as.character(delly$SVTYPE), CT=as.character(delly$CT),
+                       DISC=as.numeric(delly$DISC),
+                       SPLIT=as.numeric(delly$SPLIT))
+    }
+    
     dt[, span := ifelse(chr[1] != chr[2], 1e9, abs(start[1] - end[2])), by=id]
     setkey(dt, id)
     dt <- unique(dt)
@@ -348,11 +428,15 @@ load_delly <- function(files) {
     mcols(del)$SPAN <- dt[mcols(del)$id]$span
     mcols(del)$SVTYPE <- dt[mcols(del)$id]$SVTYPE
     mcols(del)$CT <- dt[mcols(del)$id]$CT
-    mcols(del)$TDISC <- dt[mcols(del)$id]$TDISC
-    mcols(del)$NDISC <- dt[mcols(del)$id]$NDISC
-    mcols(del)$TSPLIT <- dt[mcols(del)$id]$TSPLIT
-    mcols(del)$NSPLIT <- dt[mcols(del)$id]$NSPLIT
-
+    if (ncol(geno(dvcf)$DV)==2) {
+      mcols(del)$TDISC <- dt[mcols(del)$id]$TDISC
+      mcols(del)$NDISC <- dt[mcols(del)$id]$NDISC
+      mcols(del)$TSPLIT <- dt[mcols(del)$id]$TSPLIT
+      mcols(del)$NSPLIT <- dt[mcols(del)$id]$NSPLIT
+    } else {
+      mcols(del)$DISC <- dt[mcols(del)$id]$DISC
+      mcols(del)$SPLIT <- dt[mcols(del)$id]$SPLIT
+    }
     gg <- grl.unlist(del)
     ix <- mcols(gg)$CT == "3to5"
     strand(gg)[ix] <- rep(c("-", "+"), sum(ix)/2)
@@ -505,8 +589,8 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
       FPs <- FPs
     }
 
-    print(FPs)
-    print(rr)
+    #print(FPs)
+    #print(rr)
     print(paste("NUM SV", num_sv))
     TPs_500 <- sum(e$id %in% TPs & e$span >= 500)/2
     print(paste(c("TP SV", TPs_500, "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))

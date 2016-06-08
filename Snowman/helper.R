@@ -90,70 +90,109 @@ Sys.setenv(DEFAULT_BSGENOME = "BSgenome.Hsapiens.UCSC.hg19::Hsapiens")
   return(list(grl=grl.ff, dt=ff))
 }
 
-## load other data
-#map <- readRDS("data/wgEncodeCrgMapabilityAlign100mer.gr.rds")
-
-### load the NA12878 data
-print("...loading snowman NA12878")
-snow.NA12878 <- .load_snowman_vcf_datatable("data/NA12878_160525.snowman.sv.vcf")
-snow.NA12878[, deltype := strand[1] == '+' && altstrand[1] == "-" && altchr[1]==chr[1] && SPAN[1] < 1e6, by=RARID]
-snow.dels.NA12878 <- snow.NA12878[!duplicated(RARID) & deltype]
-
-## annotate lumpy data
-truth.NA12878 <- readRDS("data/lumpy_na12878.rds")
-#truth.NA12878 <- .load_bedpe("data/na12878.deletion.lumpyfile4.bedpe")
-#gr <- with(truth.NA12878$dt, GRanges(chr, IRanges(pos,pos)))
-#fo <- gr.val(gr, map, 'score')
-#truth.NA12878$dt$mean_mappability <- fo$score
-#gr <- with(truth.NA12878$dt, GRanges(altchr, IRanges(altpos,altpos)))
-#fo <- gr.val(gr, map, 'score')
-#truth.NA12878$dt$mean_mappability_alt <- fo$score
-#saveRDS(truth.NA12878, "data/lumpy_na12878.rds")
-
-## annotate lumpy data
+## load the truth NA12878 from lumpy paper
 truth2.NA12878 <- readRDS("data/lumpy_na12878_set2.rds")
-truth2.NA12878 <- .load_bedpe2("data/lumpy_na12878_truthset4.bedpe")
-#gr <- with(truth.NA12878$dt, GRanges(chr, IRanges(pos,pos)))
-#fo <- gr.val(gr, map, 'score')
-#truth.NA12878$dt$mean_mappability <- fo$score
-#gr <- with(truth.NA12878$dt, GRanges(altchr, IRanges(altpos,altpos)))
-#fo <- gr.val(gr, map, 'score')
-#truth.NA12878$dt$mean_mappability_alt <- fo$score
-#saveRDS(truth2.NA12878, "data/lumpy_na12878_set2.rds")
+truth.NA12878 <- .load_bedpe("data/na12878.deletion.lumpyfile4.bedpe")
 
-## prepare as GRangesLists
-# tmp <- snow.NA12878[snow.NA12878$deltype]
-# gr <- with(tmp, GRanges(chr, IRanges(pos, pos), strand=strand, RARID=RARID))
-# grl.snow.dels.na12878 <- split(gr, gr$RARID)
-# mcols(grl.snow.dels.na12878) <- tmp[!duplicated(RARID),.(SPAN)]
-# stopifnot(as.numeric(names(table(elementLengths(grl.snow.dels.na12878))))==2)
-# 
-# ## do the overlaps with truth set
-# ro_snowman_set1 <- ra.overlaps(grl.snow.dels.na12878,  truth.NA12878$grl, pad=2e3)
-# TP_snowman1 <- length(unique(ro_snowman_set1[,'ra1.ix'])) ## TRUE POSITIVE
-# ro_snowman_set2 <- ra.overlaps(grl.snow.dels.na12878, truth2.NA12878$grl, pad=2e3)
-# TP_snowman2 <- length(unique(ro_snowman_set2[,'ra1.ix'])) ## TRUE POSITIVE
-# FP_snowman1 <- sum(ix <- mcols(grl.snow.dels.na12878)$SPAN > 100) - TP_snowman1
-# FP_snowman2 <- sum(ix <- mcols(grl.snow.dels.na12878)$SPAN > 100) - TP_snowman2
-# saveRDS(list(dels=snow.dels.NA12878, dels.grl=grl.snow.dels.na12878, FP1=FP_snowman1, FP2=FP_snowman2, TP1=TP_snowman1, TP2=TP_snowman2, ro1=ro_snowman_set1, ro2=ro_snowman_set2),"data/snowman_NA12878.rds")
-snowman12878 <- readRDS("data/snowman_NA12878.rds")
+## funciton for analyzing na12878 deletions
+.na12878_olap <- function(x) {
+  
+  if ("indel" %in% names(x)) {
+    
+    x2 <- x$indel[x$indel$SPAN > 50 & x$indel$ETYPE == "del"]
+    x3_1 <- GRanges(seqnames(x2), IRanges(start(x2), width=1), strand="+", id=seq_along(x2))
+    x3_2 <- GRanges(seqnames(x2), IRanges(end(x2), width=1), strand="-", id=seq_along(x2))
+    b <- c(x3_1, x3_2)
+    b <- split(b, b$id)
+    mcols(b)$deltype <- TRUE
+    mcols(b)$SPAN <- x2$SPAN
+    x$grl <- grlbind(x$grl, b)
+    x$dt$id = x$dt$SCTG
+      
+  }
+    
+  if ("deltype" %in% colnames(mcols(x$grl))) {
+    dd = x$grl[mcols(x$grl)$deltype]
+  } else if ("SVTYPE" %in% colnames(x$grl)) { ## delly
+    dd = x$grl[mcols(x$grl)$SVTYPE=="DEL"]
+  } else {
+    dd = x$grl
+    x$dt$deltype <- TRUE
+    mcols(dd)$deltype <- TRUE
+  }
+  
+  if ("SVLEN" %in% colnames(mcols(dd))) {
+      mcols(dd)$SPAN = mcols(dd)$SVLEN
+      x$dt[x$dt$ALT >= 6]
+      dd <- dd[!is.na(mcols(dd)$ALT) & mcols(dd)$ALT >= 6]
+  }
+  
+  if (!"id" %in% colnames(x$dt))
+      x$dt$id <- seq(nrow(x$dt))
+  
+  suppressWarnings(ro1 <- ra.overlaps(dd,  truth.NA12878$grl, pad=2e3, ignore.strand=FALSE))
+  TP1e <- dd[unique(ro1[,'ra1.ix'])]
+  TP1 <- length(unique(ro1[,'ra2.ix'])) ## TRUE POSITIVE
+  suppressWarnings(ro2 <- ra.overlaps(dd, truth2.NA12878$grl, pad=2e3, ignore.strand=FALSE))
+  TP2e <- dd[unique(ro2[,'ra1.ix'])]
+  TP2 <- length(unique(ro2[,'ra2.ix'])) ## TRUE POSITIVE
+  FP1e <- dd[setdiff(seq_along(dd), ro1[,'ra1.ix'])]
+  FP1 = sum(mcols(FP1e)$SPAN >= 100)
+  FP2e <- dd[setdiff(seq_along(dd), ro2[,'ra1.ix'])]
+  FP2 = sum(mcols(FP2e)$SPAN >= 100)
+  
+  #setkey(x$dt, seqnames, start)
+  return(list(dels=x$dt[!duplicated(x$dt$id) & x$dt$deltype & x$dt$SPAN >= 50], dels.grl=x$grl[mcols(x$grl)$deltype], FP1=FP1, FP2=FP2, TP1=TP1, TP2=TP2, ro1=ro1, ro2=ro2, TP1e=TP1e,TP2e=TP2e, FP1e=FP1e,FP2e=FP2e))
+}
 
-### NA12878 Pindel
-#ff <- readRDS("data/pindel_NA12878.rds")
-#pindel.dels <- ff[SVLEN > 30 & SVTYPE=="DEL"]
-#gr <- with(pindel.dels, GRanges(c(V1, V1), IRanges(c(V2, V2), width=1), strand=rep(c("+","-"), each=nrow(pindel.dels)), id=rep(seq(nrow(pindel.dels)),2)))
-#grl.pindel <- split(gr, gr$id) 
-#ro_pindel_set1 <- ra.overlaps(grl.pindel,  truth.NA12878$grl, pad=2e3)
-#TP_pindel1 <- length(unique(ro_pindel_set1[,'ra1.ix'])) ## TRUE POSITIVE
-#ro_pindel_set2 <- ra.overlaps(grl.pindel, truth2.NA12878$grl, pad=2e3)
-#TP_pindel2 <- length(unique(ro_pindel_set2[,'ra1.ix'])) ## TRUE POSITIVE
-#FP_pindel1 <- nrow(pindel.dels[SVLEN > 100]) - TP_pindel1
-#FP_pindel2 <- nrow(pindel.dels[SVLEN > 100]) - TP_pindel2
-#saveRDS(list(dels=pindel.dels, FP1=FP_pindel1, FP2=FP_pindel2, TP1=TP_pindel1, TP2=TP_pindel2, ro1=ro_pindel_set1, ro2=ro_pindel_set2),"data/pindel_NA12878.rds")
-pindel12878 <- readRDS("data/pindel_NA12878.rds")
+# ## do the overlaps with truth set SNOWMAN NA12878
+#saveRDS(snowman12878 <- .na12878_olap(readRDS("data/snowman_na12878.rds")), "data/snowman_processed_na12878.rds")
+snowman12878 <- readRDS("data/snowman_processed_na12878.rds")
+#saveRDS(lumpy12878 <- .na12878_olap(readRDS("data/lumpy_na12878.rds")), "data/lumpy_processed_na12878.rds")
+lumpy12878 <- readRDS("data/lumpy_processed_na12878.rds")
+#saveRDS(pindel12878 <- .na12878_olap(readRDS("data/pindel_na12878.rds")), "data/pindel_processed_na12878.rds")
+pindel12878 <- readRDS("data/pindel_processed_na12878.rds")
+
+## NA12878 ROC
+# lum <- readRDS("data/lumpy_na12878.rds")
+# lum.out <- rbindlist(lapply(2:20, function(x) {
+#   print(x)
+#   llo <- lum
+#   llo$grl <- lum$grl[ix <- mcols(lum$grl)$SR + mcols(lum$grl)$PE >= x]
+#   llo$dt <- lum$dt[ix]
+#   ll2 <- .na12878_olap(llo)
+#   with(ll2, data.table(x=x, TP1=TP1, TP2=TP2, FP1=FP1,FP2=FP2))
+# }))
+# saveRDS(lum.out, "data/lumpy_roc_na12878.rds")
+lumpy_roc_na12878 <- readRDS("data/lumpy_roc_na12878.rds")
+# ss <- readRDS("data/snowman_na12878.rds")
+# ss.out <- rbindlist(lapply(2:20, function(x) {
+#   print(x)
+#   llo <- ss
+#   llo$grl <- ss$grl[ix <- mcols(ss$grl)$NORMALT >= x]
+#   llo$indel <- ss$indel[ss$indel$DP >= x]
+#   ll2 <- .na12878_olap(llo)
+#   with(ll2, data.table(x=x, TP1=TP1, TP2=TP2, FP1=FP1,FP2=FP2, caller="Snowman"))
+# }))
+# saveRDS(ss.out, "data/snowman_roc_na12878.rds")
+snowman_roc_na12878 <- readRDS("data/snowman_roc_na12878.rds")
+# ss <- readRDS("data/pindel_na12878.rds")
+# ss.out <- rbindlist(lapply(2:20, function(x) {
+#   print(x)
+#   llo <- ss
+#   llo$grl <- ss$grl[ix <- !is.na(mcols(ss$grl)$ALT) & mcols(ss$grl)$ALT >= x]
+#   ll2 <- .na12878_olap(llo)
+#   with(ll2, data.table(x=x, TP1=TP1, TP2=TP2, FP1=FP1,FP2=FP2, caller="Pindel"))
+# }))
+# saveRDS(ss.out, "data/pindel_roc_na12878.rds")
+pindel_roc_na12878 <- readRDS("data/pindel_roc_na12878.rds")
+ggplot(data=rbindlist(list(snowman_roc_na12878, lumpy_roc_na12878, pindel_roc_na12878)), aes(x=FP1, y=TP1, color=caller)) + geom_point() + geom_line() + theme_bw() + xlab("Not in validation set") + ylab("True Positive") #+ scale_color_manual(values=("snowman"="blue","Pindel"="red","LUMPY"="darkgreen"), name="")
+ggplot(data=rbindlist(list(snowman_roc_na12878, lumpy_roc_na12878, pindel_roc_na12878)), aes(x=FP2, y=TP2, color=caller)) + geom_point() + geom_line() + theme_bw() + xlab("Not in validation set") + ylab("True Positive")
+
 ###########################
 ## SIMLULATED
 ###########################
+
 print("...loading simulated data")
 events.d1 <- fread("data/events.d1.txt")
 setnames(events.d1, paste0("V",seq(11)), c("chr","pos","altchr","altpos","strand","altstrand","dummy","span","class","ins_seq","ID"))
@@ -170,6 +209,5 @@ gr.events <- sort(gr.fix(with(events.d1, GRanges(c(chr,altchr), IRanges(c(pos,al
 ## load pindel
 #pindel <- readRDS("data/pindel_sim.rds")
 
-setkey(snow.NA12878, RARID)
 print("done loading data")
 

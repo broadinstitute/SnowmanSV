@@ -169,7 +169,7 @@ load_snowman <- function(files, mc.cores=mc.cores, unlist=FALSE, bad.remove=TRUE
     ff <- fread(paste("grep -v '^#'", x),sep='\t')
     if (ncol(ff)==10)
       setnames(ff, paste0("V",seq(1:10)), c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","GENO","NORMAL"))
-    else if (ncols(ff) == 11)
+    else if (ncol(ff) == 11)
       setnames(ff, paste0("V",seq(1:11)), c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","GENO","NORMAL","TUMOR"))
     ff[, SPAN := as.numeric(gsub(".*?SPAN=([-0-9]+).*","\\1",INFO))]
     ff$sample = gsub("(.*?)_.*","\\1",basename(x))
@@ -648,7 +648,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
 
   g <- grid.arrange(g.in, g.sv, g.ic, ncol=3, widths=c(2.5,5,0.8)) #, width=8, height=3, filename=fname)
 
-  return(list(df=df, g=g, TP=TPe))
+  return(list(df=df, g=g, TP=TPe, FPi=FPi, FPs=FPs))
 }
 
 grl2links <- function(x) {

@@ -158,8 +158,6 @@ shinyServer(function(input, output) {
       talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
-
-    print(talt)
     ff = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
     print(paste("Filtered PINDEL length",length(ff)))
     
@@ -197,12 +195,13 @@ shinyServer(function(input, output) {
     if (input$sim_plot_evdnc %in% c("ASSMB","ASDIS","DSCRD","COMPL"))
       snow  = snow[evidence == input$sim_plot_evdnc]
     
-    snowi <- with(snowi, GRanges(chr1, IRanges(pos1, pos2), SPAN=span))
+    snowi <- with(snowi, GRanges(chr1, IRanges(pos1, pos2), SPAN=span, ALT=T_ALT))
     snow$id <- seq(nrow(snow))
     grl.snow <- with(snow, GRanges(c(chr1,chr2), IRanges(c(pos1,pos2), width=1), strand=c(strand1,strand2), id=rep(id, 2)))
     grl.snow <- split(grl.snow, grl.snow$id)
     mcols(grl.snow)$SPAN <- snow$span
-    
+    mcols(grl.snow)$ALT <- snow$T_ALT
+
     ## load the snowman data
     #grl.snow <- with(snow, GRanges(chr, IRanges(pos,pos), strand=strand, id=RARID))
     #grl.snow <- split(grl.snow, grl.snow$id)

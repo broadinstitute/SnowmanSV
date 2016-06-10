@@ -26,6 +26,7 @@ shinyServer(function(input, output) {
   output$truth_NA12878_table <- renderDataTable(truth.NA12878$dt, options=list(pageLength = 10))
   output$truth_NA12878_table2 <- renderDataTable(truth2.NA12878$dt, options=list(pageLength = 10))
   output$pindel_NA12878_table <- renderDataTable(pindel12878$dels, options=list(pageLength = 10))
+  output$lumpy_NA12878_table <- renderDataTable(lumpy12878$dels, options=list(pageLength = 10))
   
   output$simulated_events_table <- renderDataTable(events.d1, options=list(pageLength=10, autoWidth=TRUE))
   
@@ -157,8 +158,6 @@ shinyServer(function(input, output) {
       talt = as.numeric(input$tum_support_sim)
       nalt = 0;
     }
-
-    print(talt)
     ff = ff[ff$TUMALT >= talt & ff$NORMAL <= nalt]
     print(paste("Filtered PINDEL length",length(ff)))
     
@@ -196,12 +195,13 @@ shinyServer(function(input, output) {
     if (input$sim_plot_evdnc %in% c("ASSMB","ASDIS","DSCRD","COMPL"))
       snow  = snow[evidence == input$sim_plot_evdnc]
     
-    snowi <- with(snowi, GRanges(chr1, IRanges(pos1, pos2), SPAN=span))
+    snowi <- with(snowi, GRanges(chr1, IRanges(pos1, pos2), SPAN=span, ALT=T_ALT))
     snow$id <- seq(nrow(snow))
     grl.snow <- with(snow, GRanges(c(chr1,chr2), IRanges(c(pos1,pos2), width=1), strand=c(strand1,strand2), id=rep(id, 2)))
     grl.snow <- split(grl.snow, grl.snow$id)
     mcols(grl.snow)$SPAN <- snow$span
-    
+    mcols(grl.snow)$ALT <- snow$T_ALT
+
     ## load the snowman data
     #grl.snow <- with(snow, GRanges(chr, IRanges(pos,pos), strand=strand, id=RARID))
     #grl.snow <- split(grl.snow, grl.snow$id)
@@ -250,22 +250,26 @@ shinyServer(function(input, output) {
 
   })
   
-  output$na12878_set <- renderPlotly({
+  output$na12878_set <- renderPlot({
     
     df <- data.frame(TP=c(snowman12878$TP1,
                           snowman12878$TP2,
                           pindel12878$TP1,
                           pindel12878$TP2,
+                          lumpy12878$TP1,
+                          lumpy12878$TP2,
                           nrow(truth.NA12878$dt),
                           nrow(truth2.NA12878$dt)),
-                     CALLER=c("Snowman","Snowman","Pindel","Pindel","Truth","Truth"),
-                     SET=rep(c("Deletion Set 1","Deletion Set 2"),3),
-                     FP=c(snowman12878$FP1,snowman12878$FP2, pindel12878$FP1, pindel12878$FP2, 0,0))
+                     CALLER=c("Snowman","Snowman","Pindel","Pindel","LUMPY", "LUMPY", "Truth","Truth"),
+                     SET=rep(c("Deletion Set 1","Deletion Set 2"),4),
+                     FP=c(snowman12878$FP1,snowman12878$FP2, pindel12878$FP1, pindel12878$FP2, lumpy12878$FP1, lumpy12878$FP2, 0,0))
     
     g <- ggplot(data=melt(df, id.vars=c("SET","CALLER"))) + geom_bar(position='dodge',aes(x=CALLER, fill=variable, y=value), stat='identity') + facet_wrap(~ SET) + 
-      ylab("Event count") + xlab("") + scale_fill_manual(name="", values=c("TP"="black","FP"="grey"), labels=c("TP"="Detected deletion","FP"="Unvalidated call")) 
-    p <- ggplotly(g)
-    p
+      ylab("Event count") + xlab("") + scale_y_continuous(breaks=seq(0,12000, by=1000)) + scale_fill_manual(name="", values=c("TP"="red","FP"="grey"), labels=c("TP"="Detected deletion","FP"="Unvalidated call")) +
+      geom_text(aes(x=CALLER, y=value, label=value),position=position_dodge(width=1), stat='identity') + coord_flip()
+    print(g)
+    #p <- ggplotly(g)
+    #p
     
   })
   

@@ -17,17 +17,23 @@ shinyUI(navbarPage(inverse=TRUE,
   #          includeHTML("README.html")
   #          ),
   tabPanel(title="Home", icon = icon("fa fa-home"),
+           includeCSS("style.css"),
            fluidPage(
-             h2("Snowman", align="center"),
-             h4("Structural variation and indel detection by genome-wide local assembly", align="center"),
+             h1("Snowman", align="center", color="#0000FF"),
+             h3("Structural variation and indel detection by genome-wide local assembly", align="center"),
              br(),br(),
-             fluidRow(column(width=5,align="right",
+             fluidRow(column(width=3,align="right",
              a(img(src="http://www.broadinstitute.org/collaboration/gcc/wp-content/uploads/2011/07/broad-logo.jpg", width=200),href="http://www.broadinstitute.org/", target="_blank")
              ), column(width=1,
                p("")
              ),
-             column(width=5,align="left",
+             column(width=3,align="left",
                a(img(src="https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Dana-Farber_Cancer_Institute_logo.svg/1280px-Dana-Farber_Cancer_Institute_logo.svg.png", width=200),href="http://www.dana-farber.org/", target="_blank")
+             ),column(width=1,
+                      p("")
+             ),
+             column(width=3,align="left",
+                    a(img(src="https://assets-cdn.github.com/images/modules/logos_page/GitHub-Logo.png", width=200),href="https://github.com/broadinstitute/SnowmanSV", target="_blank")
              )
              ),
              br(),
@@ -76,7 +82,8 @@ shinyUI(navbarPage(inverse=TRUE,
                ),
                column(width=1,p(""))
              ),
-             br(),br(),br(),
+             br(),
+             br(),br(),
              img(src='schematic_snowman.png',style="display: block; margin-left: auto; margin-right: auto;", width="50%")
            ) ## fluid Page
   ),
@@ -101,12 +108,14 @@ shinyUI(navbarPage(inverse=TRUE,
             div(dataTableOutput("truth_NA12878_table2"), style="font-size:70%"),
             h3("NA12878 deletions from Snowman"),
             div(dataTableOutput("snowman_NA12878_table"), style="font-size:70%"),
+            h3("NA12878 deletions from Lumpy"),
+            div(dataTableOutput("lumpy_NA12878_table"), style="font-size:70%"),
             h3("NA12878 deletions from Pindel"),
             div(dataTableOutput("pindel_NA12878_table"), style="font-size:70%")
           ),
    tabPanel(title="Comparison figures", icon = icon(lib="font-awesome", "bar-chart"),
             h3("Events detected"),
-            plotlyOutput("na12878_set")
+            plotOutput("na12878_set")
             )
    ),
    navbarMenu("Simulated tumor",

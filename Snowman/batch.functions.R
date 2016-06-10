@@ -548,7 +548,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     
     print(paste(c("TP Indel (<50bp)", length(TPi), "FP Indel", length(FPi))))
     print(paste(c("Indel Precision: ", pr <- length(TPi)/(length(TPi) + length(FPi)), "Indel Recall:", rc<-length(TPi)/num_indel), collapse=" "))
-    df <- data.frame(indel_precision=pr, indel_recall=rc)
+    df <- data.frame(TPi = length(TPi), FPi = length(FPi)) #indel_precision=pr, indel_recall=rc)
     
   }
 
@@ -595,7 +595,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     TPs_500 <- sum(e$id %in% TPs & e$span >= 500)/2
     print(paste(c("TP SV", TPs_500, "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))
     print(paste(c("SV Precision: ", pr <- TPs_500/(TPs_500 + length(FPs)), "SV Recall:", rc<-TPs_500/num_sv), collapse=" "))
-    
+  
   }
 
   print(paste(c("--TP SV (>= 500)",  sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2)))
@@ -604,7 +604,19 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   print(paste(c("--FP SV (>= 500)",  sum(FPs >= 500) + sum(FPi$SPAN >= 500))))
   print(paste(c("--FP Indel (< 50)", sum(FPs < 50) + sum(FPi$SPAN < 50))))
   print(paste(c("--FP Med (50-300)", sum(FPs > 50 & FPs < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300))))
-        
+       
+  dt <- data.table(TP=c(sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2,
+                        sum(e$id %in% c(TPs,TPi) & e$span < 50)/2,
+                        sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2
+                   ),
+                   FP=c(sum(FPs >= 500) + sum(FPi$SPAN >= 500),
+                        sum(FPs < 50) + sum(FPi$SPAN < 50),
+                        sum(FPs > 50 & FPs < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300)
+                   ),
+                   Group=c("SV","Indel","Medium")
+  )
+  #df <- cbind(df, data.frame(TPm=sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2, FPm=sum(FPs > 50 & FPs < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300)))
+  
   tFP <- length(FPs) + length(FPi)
   tTP = length(unique(c(TPi,TPs)))
   print(paste("Total FP:", tFP))
@@ -612,7 +624,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   print(paste(c("Total Precision: ", pr <- tTP/(tTP + tFP), "Total Recall:", rc<-tTP/num_events), collapse=" "))
   
   if (fname=="noplot")
-    return(df)
+    return(dt)
   
   TPe <- e$id %in% c(TPs, TPi)
   FNe <- !TPe ##e$id %in% c(FNs, FNi)

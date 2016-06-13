@@ -504,51 +504,36 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   } else {
     num_events = length(unique(e$id[ix <- rep(TRUE, length(e))]))
   }
-
-  if (type == "indel")  {
-    valid = seq(1,49)
-  } else if (type == "medium") {
-    valid = seq(50,200)
-  }
   
-  print(paste('Num truth-set events considered', num_events))
   if (!is.null(xindel)) {
 
     num_indel <- length(unique(e$id[e$span < 50 & e$span > 0]))
+    er <- gr2dt(e)
+    er[, subject.id := seq(nrow(er))]
+    setkey(er, subject.id)
     
-    fo <- gr.findoverlaps(xindel, e + 15)
-    fo$id <- e$id[fo$subject.id]
-    fo$type <- e$type[fo$subject.id]
-    fo$span = e$span[fo$subject.id]
-    fo$qspan = xindel$SPAN[fo$query.id]
-    fo <- gr2dt(fo)
+    suppressWarnings(fo <- gr2dt(gr.findoverlaps(xindel, e + 15)))
+    setkey(fo, subject.id)
+
+    fo <- er[,.(id, span, type, subject.id)][fo]
+    fo[, qspan := xindel$SPAN[query.id]]
     fo[, diff := abs(span-qspan), by=id]
-    fo <- fo[fo$diff < 15]
+    fo <- fo[diff <= 5]
+    
     TPi <- unique(fo$id)
-    ## isolate only events with span in range
-    TPi <- unique(TPi[TPi %in% e$id[ix]])
     
     FNi <- setdiff(unique(e$id), unique(fo$id))
     FPi <- xindel[unique(setdiff(seq_along(xindel), fo$query.id))]
-    FNi <- e[e$id %in% FNi & grepl("(del)|(ins)", e$id)] ## only count false negatives among ones we should have seen
+    ## only count false negatives among ones we should have seen
+    FNi <- e[e$id %in% FNi & grepl("(del)|(ins)", e$id)]
     
-    ## isolate FP evnets only with span in range
-    if (type %in% c("indel", "medium")) {
-      FPi = FPi[FPi$SPAN %in% valid]
-    } else if (type == "sv") {
-      FPi = FPi[FPi$SPAN >= 500 | FPi$SPAN == -1]
-    } else {
-      FPi = FPi
-    }
-    
-    if (file.exists("/dev/shm/fpi.rds")) {
+    if (file.exists("/dev/shm/")) {
       saveRDS(FPi,"/dev/shm/fpi.rds")
       saveRDS(FNi,"/dev/shm/fni.rds")
     }
     
-    print(paste(c("TP Indel (<50bp)", length(TPi), "FP Indel", length(FPi))))
-    print(paste(c("Indel Precision: ", pr <- length(TPi)/(length(TPi) + length(FPi)), "Indel Recall:", rc<-length(TPi)/num_indel), collapse=" "))
-    df <- data.frame(TPi = length(TPi), FPi = length(FPi)) #indel_precision=pr, indel_recall=rc)
+    #print(paste(c("TP Indel (<50bp)", length(TPi), "FP Indel", length(FPi))))
+    #print(paste(c("Indel Precision: ", pr <- length(TPi)/(length(TPi) + length(FPi)), "Indel Recall:", rc<-length(TPi)/num_indel), collapse=" "))
     
   }
 
@@ -557,54 +542,33 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     ## make GRangesList of true events
     grl.e <- split(e[ix], e$id[ix])
     this_id <- unique(grl.unlist(grl.e)$id)
-    
     num_sv = length(unique(e$id[e$span >= 500]))
     
     ## get the overlaps
     suppressWarnings(ro <- ra.overlaps(xsv, grl.e, pad=pad, ignore.strand=TRUE))
 
-    ## get the overlaps for larger events, with larger buffer
-    id <- seq_along(xsv)
-    ixr <- mcols(xsv)$SPAN >= 500 |  mcols(xsv)$SPAN == -1
-    id2 <- id[ixr]
-    suppressWarnings(ro2 <- ra.overlaps(xsv[ixr], grl.e, pad=200, ignore.strand=TRUE))
+    FPs <- xsv[unique(setdiff(seq_along(xsv), id[ro[,1]]))]
+    TPs <- unique(this_id[ro[,2]])
+    FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
 
-    if (!is.na(ro2[1])) {
-      #FPs <- id[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
-      FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), c(id2[ro2[,1]], id[ro[,1]])))]
-      TPs <- unique(c(this_id[ro[,2]], this_id[ro2[,2]]))
-      FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
-    } else { 
-      FPs <- mcols(xsv)$SPAN[rr <- unique(setdiff(seq_along(xsv), id[ro[,1]]))]
-      TPs <- unique(this_id[ro[,2]])
-      FNs <- this_id[setdiff(seq_along(grl.e), ro[,2])]
-    }
-    
-    #TPs <- unique(TPs)
-    if (type %in% c("indel", "medium")) {
-      FPs <- FPs[FPs %in% valid] ## only count FP in our size range
-    } else if (type == 'sv') {
-      FPs <- FPs[FPs >= 500 | FPs == -1] ## only count FP in our size range
-    } else {
-      FPs <- FPs
+    if (file.exists("/dev/shm/")) {
+      saveRDS(FPs,"/dev/shm/fps.rds")
+      saveRDS(FNs,"/dev/shm/fns.rds")
     }
 
-    #print(FPs)
-    #print(rr)
-    print(paste("NUM SV", num_sv))
-    TPs_500 <- sum(e$id %in% TPs & e$span >= 500)/2
-    print(paste(c("TP SV", TPs_500, "FP SV", length(FPs), "FN SV", length(FNs[FNs %in% e$id[e$span >= 500]]))))
-    print(paste(c("SV Precision: ", pr <- TPs_500/(TPs_500 + length(FPs)), "SV Recall:", rc<-TPs_500/num_sv), collapse=" "))
-  
   }
 
-  print(paste(c("--TP SV (>= 500)",  sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2)))
-  print(paste(c("--TP Indel (< 50)", sum(e$id %in% c(TPs,TPi) & e$span < 50)/2)))
-  print(paste(c("--TP Med (50-300)", sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2)))
-  print(paste(c("--FP SV (>= 500)",  sum(FPs >= 500) + sum(FPi$SPAN >= 500))))
-  print(paste(c("--FP Indel (< 50)", sum(FPs < 50) + sum(FPi$SPAN < 50))))
-  print(paste(c("--FP Med (50-300)", sum(FPs > 50 & FPs < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300))))
-       
+  print(paste("TP",sum(e$id %in% c(TPs,TPi) & e$span < 50)/2, sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2, sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2))
+  print(paste("FP",sum(mcols(FPs)$SPAN < 50) + sum(FPi$SPAN < 50), sum(mcols(FPs)$SPAN > 50 & mcols(FPs)$SPAN < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300), sum(mcols(FPs)$SPAN >= 500) + sum(FPi$SPAN >= 500)))
+  print(paste("  ",sum(e$span < 50), sum(e$span >= 50 & e$span <= 300), sum(e$span >= 500)))    
+  #print(paste(c("--TP SV (>= 500)",  sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2)))
+  #print(paste(c("--TP Indel (< 50)", sum(e$id %in% c(TPs,TPi) & e$span < 50)/2)))
+  #print(paste(c("--TP Med (50-300)", sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2)))
+  #print(paste(c("--FP SV (>= 500)",  sum(mcols(FPs)$SPAN >= 500) + sum(FPi$SPAN >= 500))))
+  #print(paste(c("--FP Indel (< 50)", sum(mcols(FPs)$SPAN < 50) + sum(FPi$SPAN < 50))))
+  #print(paste(c("--FP Med (50-300)", sum(mcols(FPs)$SPAN > 50 & mcols(FPs)$SPAN < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300))))
+
+  FPs <- mcols(FPs)$SPAN
   dt <- data.table(TP=c(sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2,
                         sum(e$id %in% c(TPs,TPi) & e$span < 50)/2,
                         sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2
@@ -615,13 +579,12 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
                    ),
                    Group=c("SV","Indel","Medium")
   )
-  #df <- cbind(df, data.frame(TPm=sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2, FPm=sum(FPs > 50 & FPs < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300)))
   
   tFP <- length(FPs) + length(FPi)
   tTP = length(unique(c(TPi,TPs)))
-  print(paste("Total FP:", tFP))
-  print(paste("Total TP:", tTP))
-  print(paste(c("Total Precision: ", pr <- tTP/(tTP + tFP), "Total Recall:", rc<-tTP/num_events), collapse=" "))
+  #print(paste("Total FP:", tFP))
+  #print(paste("Total TP:", tTP))
+  #print(paste(c("Total Precision: ", pr <- tTP/(tTP + tFP), "Total Recall:", rc<-tTP/num_events), collapse=" "))
   
   if (fname=="noplot")
     return(dt)

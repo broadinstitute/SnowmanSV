@@ -559,7 +559,12 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   }
 
   print(paste("TP",sum(e$id %in% c(TPs,TPi) & e$span < 50)/2, sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2, sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2))
-  print(paste("FP",sum(mcols(FPs)$SPAN < 50) + sum(FPi$SPAN < 50), sum(mcols(FPs)$SPAN > 50 & mcols(FPs)$SPAN < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300), sum(mcols(FPs)$SPAN >= 500) + sum(FPi$SPAN >= 500)))
+
+  FPsprint1 <- tryCatch({sum(mcols(FPs)$SPAN < 50)}, error=function(e){0}) + ifelse(length(FPi), sum(FPi$SPAN < 50), 0)
+  FPsprint2 <- tryCatch({sum(mcols(FPs)$SPAN > 50 & mcols(FPs)$SPAN < 300)}, error=function(e) { 0 }) + ifelse(length(FPi), sum(FPi$SPAN > 50 & FPi$SPAN < 300), 0)
+  FPsprint3 <- tryCatch({sum(mcols(FPs)$SPAN >= 500)},error=function(e){0}) + ifelse(length(FPi), sum(FPi$SPAN >= 500), 0)
+  
+  print(paste("FP", FPsprint1, FPsprint2, FPsprint3))
   print(paste("  ",sum(e$span < 50), sum(e$span >= 50 & e$span <= 300), sum(e$span >= 500)))    
   #print(paste(c("--TP SV (>= 500)",  sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2)))
   #print(paste(c("--TP Indel (< 50)", sum(e$id %in% c(TPs,TPi) & e$span < 50)/2)))
@@ -568,7 +573,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
   #print(paste(c("--FP Indel (< 50)", sum(mcols(FPs)$SPAN < 50) + sum(FPi$SPAN < 50))))
   #print(paste(c("--FP Med (50-300)", sum(mcols(FPs)$SPAN > 50 & mcols(FPs)$SPAN < 300) + sum(FPi$SPAN > 50 & FPi$SPAN < 300))))
 
-  FPs <- mcols(FPs)$SPAN
+  FPs <- tryCatch({mcols(FPs)$SPAN},error=function(e){numeric(0)})
   dt <- data.table(TP=c(sum(e$id %in% c(TPs,TPi) & e$span >= 500)/2,
                         sum(e$id %in% c(TPs,TPi) & e$span < 50)/2,
                         sum(e$id %in% c(TPs,TPi) & e$span < 300 & e$span > 50)/2

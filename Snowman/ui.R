@@ -17,7 +17,7 @@ shinyUI(navbarPage(inverse=TRUE,
   #          includeHTML("README.html")
   #          ),
   tabPanel(title="Home", icon = icon("fa fa-home"),
-           includeCSS("style.css"),
+           #includeCSS("style.css"),
            fluidPage(
              h1("Snowman", align="center", color="#0000FF"),
              h3("Structural variation and indel detection by genome-wide local assembly", align="center"),

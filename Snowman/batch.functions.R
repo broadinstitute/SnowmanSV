@@ -988,6 +988,44 @@ code_enrichment_score <- function(codes, sifs) {
   return(dt)
 }
 
+#pp <- fread("grep IN_BK /broad/broadsv/NA12878/PacBio/PacBioSplit.txt")
+#setnames(pp, c("V2","V3", "V4"), c("seqnames", "start", "strand"))
+#pp[, end := start]
+#grp <- dt2gr(pp)
+#mcols(grp) <- NULL
+annotate_pacbio <- function(x, pad=10) {
+
+  if (class(x) == "GRangesList") {
+    gr <- grl.unlist(x)
+    fo <- gr2dt(gr.findoverlaps(gr + pad, grp, max.chunk=1e10, mc.cores=5))
+    fo[, qname := pp$V5[subject.id]]
+    fo[, qname.count.per.bkp.id := sum(!duplicated(qname)), by=query.id]
+    fo[, rar.id := gr$grl.ix[query.id], query.id]
+    fo[, grl.iix := gr$grl.iix[query.id], query.id]
+    fo[, qname.count.per.rar.id := sum(!duplicated(qname)), by=rar.id]
+    fo[, grl.iix.count.per.rar.id := sum(!duplicated(grl.iix)), by=rar.id]
+    r <- fo[qname.count.per.rar.id >= 2 & grl.iix.count.per.rar.id == 2]
+    setkey(r, rar.id)
+    mcols(x)$pacbio = FALSE
+    mcols(x)$pacbio[unique(r)$rar.id] <- TRUE
+    return(x)
+  } else if (class(x) == "GRanges") {
+    fo <- gr2dt(gr.findoverlaps(x + pad, grp, max.chunk=1e10, mc.cores=5))
+    fo[, qname := pp$V5[subject.id]]
+    fo[, qname.count.per.bkp.id := sum(!duplicated(qname)), by=query.id]
+    fo[, rar.id := gr$grl.ix[query.id], query.id]
+    fo[, grl.iix := gr$grl.iix[query.id], query.id]
+    fo[, qname.count.per.rar.id := sum(!duplicated(qname)), by=rar.id]
+    fo[, grl.iix.count.per.rar.id := sum(!duplicated(grl.iix)), by=rar.id]
+    r <- fo[qname.count.per.rar.id >= 2 & grl.iix.count.per.rar.id == 2]
+    setkey(r, rar.id)
+    mcols(x)$pacbio = FALSE
+    mcols(x)$pacbio[unique(r)$rar.id] <- TRUE
+  }
+  
+}
+
+
 enrichment_test <- function(data, track) {
 
   ##genome_size = sum(as.numeric(width(setdiff(setdiff(gr.stripstrand(si2gr(gUtils::si)), x@misc$blacklist), x@misc$hengli))))

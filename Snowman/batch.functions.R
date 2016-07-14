@@ -856,6 +856,7 @@ dump.to.bed <- function(gr, file='foo.bed') {
                    #scores=gr$score,
                    scores=c(rep(".", length(gr))),
                    strands=strand(gr))
+  df <- cbind(df, mcols(gr))
   
   write.table(df, file=file, quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
   

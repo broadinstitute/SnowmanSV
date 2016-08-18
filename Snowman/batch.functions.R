@@ -518,7 +518,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     fo <- er[,.(id, span, type, subject.id)][fo]
     fo[, qspan := xindel$SPAN[query.id]]
     fo[, diff := abs(span-qspan), by=id]
-    fo <- fo[diff <= 5]
+    fo <- fo[diff <= 10]
     
     TPi <- unique(fo$id)
     
@@ -545,6 +545,7 @@ flag.plot <- function(xindel = NULL, xsv = NULL, e, fname="plot.pdf", type="all"
     num_sv = length(unique(e$id[e$span >= 500]))
     
     ## get the overlaps
+    id = seq_along(xsv)
     suppressWarnings(ro <- ra.overlaps(xsv, grl.e, pad=pad, ignore.strand=TRUE))
 
     FPs <- xsv[unique(setdiff(seq_along(xsv), id[ro[,1]]))]

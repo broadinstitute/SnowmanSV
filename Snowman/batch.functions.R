@@ -853,9 +853,9 @@ dump.to.bed <- function(gr, file='foo.bed') {
   df <- data.frame(seqnames=seqnames(gr),
                    starts=start(gr)-1,
                    ends=end(gr),
-                   names=c(rep(".", length(gr))),
-                   #scores=gr$score,
-                   scores=c(rep(".", length(gr))),
+                   #names=c(rep(".", length(gr))),
+                   scores=gr$score,
+                   #scores=c(rep(".", length(gr))),
                    strands=strand(gr))
   df <- cbind(df, mcols(gr))
   

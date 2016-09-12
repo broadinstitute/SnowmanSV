@@ -166,6 +166,15 @@ load_snowman <- function(files, mc.cores=mc.cores, unlist=FALSE, bad.remove=TRUE
     #aa <- split(aa2, grlix)
     #mcols(aa) <- dd
 
+    ## dont continue if empty
+    if (!as.numeric(system(paste("grep -v '^#'", x, "| wc -l"), intern=TRUE))) {
+      if (unlist)
+        return (GRanges())
+      else
+        return (GRangesList())
+    }
+      
+    
     ff <- fread(paste("grep -v '^#'", x),sep='\t')
     if (ncol(ff)==10)
       setnames(ff, paste0("V",seq(1:10)), c("seqnames","start","ID","REF","ALT","QUAL","FILTER","INFO","GENO","NORMAL"))
